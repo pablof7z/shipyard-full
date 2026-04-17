@@ -76,26 +76,57 @@ fn parse_relay_event_message(
 
 async fn insert_dvm_request(pool: &PgPool, request_event: &DvmRequestEvent) -> anyhow::Result<()> {
     let raw_request_event = serde_json::to_value(request_event)?;
-    let encrypted = request_event
-        .tags
-        .iter()
-        .all(|tag| tag.first().map(String::as_str) != Some("i"))
-        && !request_event.content.is_empty();
+    let encrypted = has_encrypted_tag(request_event);
+    let encrypted_tags = if encrypted {
+        Some(serde_json::Value::String(request_event.content.clone()))
+    } else {
+        None
+    };
+    let decrypted_tags = if encrypted {
+        None
+    } else {
+        Some(serde_json::to_value(&request_event.tags)?)
+    };
+    let relays = if encrypted {
+        Vec::new()
+    } else {
+        relay_targets(&request_event.tags)
+    };
 
     sqlx::query(
         "INSERT INTO dvm_requests
-           (request_event_id, request_pubkey, encrypted, raw_request_event, status)
-         VALUES ($1, $2, $3, $4, 'received')
+           (request_event_id, request_pubkey, encrypted, encrypted_tags, decrypted_tags,
+            relays, raw_request_event, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'received')
          ON CONFLICT (request_event_id) DO NOTHING",
     )
     .bind(&request_event.id)
     .bind(request_event.pubkey.as_str())
     .bind(encrypted)
+    .bind(encrypted_tags)
+    .bind(decrypted_tags)
+    .bind(&relays)
     .bind(raw_request_event)
     .execute(pool)
     .await?;
 
     Ok(())
+}
+
+fn has_encrypted_tag(request_event: &DvmRequestEvent) -> bool {
+    request_event
+        .tags
+        .iter()
+        .any(|tag| tag.first().map(String::as_str) == Some("encrypted"))
+}
+
+fn relay_targets(tags: &[Vec<String>]) -> Vec<String> {
+    tags.iter()
+        .filter(|tag| tag.first().map(String::as_str) == Some("relays"))
+        .flat_map(|tag| tag.iter().skip(1))
+        .filter(|value| value.starts_with("wss://"))
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]

@@ -76,12 +76,38 @@ async fn process_one_dvm_request(
     let request_event: DvmRequestEvent =
         serde_json::from_value(raw_request_event).context("stored DVM request event is invalid")?;
     let encrypted = has_encrypted_tag(&request_event);
+    let decrypted_tags = if encrypted {
+        decrypt_request_tags(&request_event, feedback_secret_hex)?
+    } else {
+        request_event.tags.clone()
+    };
     let parsed = if encrypted {
-        let decrypted_tags = decrypt_request_tags(&request_event, feedback_secret_hex)?;
-        parse_encrypted_dvm_request(&request_event, decrypted_tags)?
+        parse_encrypted_dvm_request(&request_event, decrypted_tags.clone())?
     } else {
         parse_dvm_request(&request_event)?
     };
+    let feedback = if parsed.encrypted {
+        build_encrypted_feedback_event(
+            feedback_secret_hex,
+            &parsed.request_pubkey,
+            "scheduled",
+            &parsed.request_event_id,
+            Some("Scheduled."),
+            Utc::now().timestamp(),
+        )?
+    } else {
+        build_signed_feedback_event(
+            feedback_secret_hex,
+            "scheduled",
+            &parsed.request_event_id,
+            Some("Scheduled."),
+            Utc::now().timestamp(),
+        )?
+    };
+    let feedback_event_id = feedback.id.clone();
+    let feedback_content = feedback.content.clone();
+    let feedback_pubkey = feedback.pubkey.as_str().to_string();
+    let decrypted_tags_json = serde_json::to_value(&decrypted_tags)?;
 
     let mut tx = pool.begin().await?;
     for event in &parsed.scheduled_events {
@@ -129,7 +155,7 @@ async fn process_one_dvm_request(
         .await?;
 
         sqlx::query(
-            "INSERT INTO jobs (kind, run_at, payload)
+            "INSERT INTO jobs (kind, available_after, payload)
              VALUES ('publish_event', $1, jsonb_build_object('publish_item_id', $2::text))",
         )
         .bind(publish_time)
@@ -138,30 +164,27 @@ async fn process_one_dvm_request(
         .await?;
     }
 
-    sqlx::query("UPDATE dvm_requests SET status = 'scheduled', error = NULL WHERE id = $1")
-        .bind(dvm_request_id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "UPDATE dvm_requests
+         SET status = 'scheduled',
+             error = NULL,
+             decrypted_tags = $2,
+             relays = $3,
+             feedback_event_id = $4,
+             feedback_content = $5,
+             feedback_pubkey = $6,
+             updated_at = now()
+         WHERE id = $1",
+    )
+    .bind(dvm_request_id)
+    .bind(decrypted_tags_json)
+    .bind(&parsed.relay_targets)
+    .bind(feedback_event_id)
+    .bind(feedback_content)
+    .bind(feedback_pubkey)
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
-
-    let feedback = if parsed.encrypted {
-        build_encrypted_feedback_event(
-            feedback_secret_hex,
-            &parsed.request_pubkey,
-            "scheduled",
-            &parsed.request_event_id,
-            Some("Scheduled."),
-            Utc::now().timestamp(),
-        )?
-    } else {
-        build_signed_feedback_event(
-            feedback_secret_hex,
-            "scheduled",
-            &parsed.request_event_id,
-            Some("Scheduled."),
-            Utc::now().timestamp(),
-        )?
-    };
 
     Ok(DvmProcessOutcome { feedback })
 }
@@ -171,11 +194,15 @@ async fn mark_dvm_request_error(
     dvm_request_id: Uuid,
     error: String,
 ) -> anyhow::Result<()> {
-    sqlx::query("UPDATE dvm_requests SET status = 'error', error = $2 WHERE id = $1")
-        .bind(dvm_request_id)
-        .bind(error)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "UPDATE dvm_requests
+         SET status = 'error', error = $2, updated_at = now()
+         WHERE id = $1",
+    )
+    .bind(dvm_request_id)
+    .bind(error)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }

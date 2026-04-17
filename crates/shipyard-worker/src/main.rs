@@ -79,8 +79,8 @@ async fn claim_job(pool: &PgPool, worker_id: &str) -> anyhow::Result<Option<Job>
     let row = sqlx::query(
         "SELECT id, kind::text AS kind, attempts, max_attempts, payload
          FROM jobs
-         WHERE status = 'ready' AND run_at <= now()
-         ORDER BY run_at ASC, created_at ASC
+         WHERE state = 'ready' AND available_after <= now()
+         ORDER BY available_after ASC, created_at ASC
          FOR UPDATE SKIP LOCKED
          LIMIT 1",
     )
@@ -102,7 +102,7 @@ async fn claim_job(pool: &PgPool, worker_id: &str) -> anyhow::Result<Option<Job>
 
     sqlx::query(
         "UPDATE jobs
-         SET status = 'running',
+         SET state = 'running',
              locked_at = now(),
              locked_by = $2,
              attempts = attempts + 1,
@@ -180,6 +180,7 @@ async fn process_publish_event(pool: &PgPool, job: &Job) -> anyhow::Result<()> {
             .unwrap_or("accepted");
         record_publish_attempt(
             pool,
+            job.id,
             payload.publish_item_id,
             attempt,
             relay_url,
@@ -284,6 +285,7 @@ async fn publish_to_relay(relay_url: &str, event: &NostrEvent) -> Result<(), Str
 
 async fn record_publish_attempt(
     pool: &PgPool,
+    job_id: Uuid,
     publish_item_id: Uuid,
     attempt: i32,
     relay_url: &str,
@@ -297,10 +299,11 @@ async fn record_publish_attempt(
     let error = (status == "error").then_some(status_or_error);
 
     sqlx::query(
-        "INSERT INTO publish_attempts (publish_item_id, attempt, relay_url, status, error)
-         VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO publish_attempts (publish_item_id, job_id, attempt, relay_url, status, error)
+         VALUES ($1, $2, $3, $4, $5, $6)",
     )
     .bind(publish_item_id)
+    .bind(job_id)
     .bind(attempt)
     .bind(relay_url)
     .bind(status)
@@ -338,8 +341,8 @@ async fn fail_publish_item(
 async fn reschedule_job(pool: &PgPool, job_id: Uuid, run_at: DateTime<Utc>) -> anyhow::Result<()> {
     sqlx::query(
         "UPDATE jobs
-         SET status = 'ready',
-             run_at = $2,
+         SET state = 'ready',
+             available_after = $2,
              locked_at = NULL,
              locked_by = NULL,
              updated_at = now()
@@ -356,11 +359,11 @@ async fn reschedule_job(pool: &PgPool, job_id: Uuid, run_at: DateTime<Utc>) -> a
 async fn mark_job_succeeded(pool: &PgPool, job_id: Uuid) -> anyhow::Result<()> {
     sqlx::query(
         "UPDATE jobs
-         SET status = 'succeeded',
+         SET state = 'succeeded',
              locked_at = NULL,
              locked_by = NULL,
              updated_at = now()
-         WHERE id = $1 AND status = 'running'",
+         WHERE id = $1 AND state = 'running'",
     )
     .bind(job_id)
     .execute(pool)
@@ -371,8 +374,8 @@ async fn mark_job_succeeded(pool: &PgPool, job_id: Uuid) -> anyhow::Result<()> {
 
 async fn mark_job_failed(pool: &PgPool, job: &Job, error: String) -> anyhow::Result<()> {
     let exhausted = job.attempts >= job.max_attempts;
-    let status = if exhausted { "failed" } else { "ready" };
-    let run_at = if exhausted {
+    let state = if exhausted { "failed" } else { "ready" };
+    let available_after = if exhausted {
         Utc::now()
     } else {
         Utc::now() + chrono::Duration::seconds(30 * i64::from(job.attempts))
@@ -380,8 +383,8 @@ async fn mark_job_failed(pool: &PgPool, job: &Job, error: String) -> anyhow::Res
 
     sqlx::query(
         "UPDATE jobs
-         SET status = $2::job_status,
-             run_at = $3,
+         SET state = $2::job_status,
+             available_after = $3,
              locked_at = NULL,
              locked_by = NULL,
              last_error = $4,
@@ -389,8 +392,8 @@ async fn mark_job_failed(pool: &PgPool, job: &Job, error: String) -> anyhow::Res
          WHERE id = $1",
     )
     .bind(job.id)
-    .bind(status)
-    .bind(run_at)
+    .bind(state)
+    .bind(available_after)
     .bind(error)
     .execute(pool)
     .await?;

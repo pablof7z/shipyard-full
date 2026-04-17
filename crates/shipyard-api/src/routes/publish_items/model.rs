@@ -164,7 +164,7 @@ pub(in crate::routes) async fn enqueue_publish_job(
     publish_time: DateTime<Utc>,
 ) -> Result<(), AppError> {
     sqlx::query(
-        "INSERT INTO jobs (kind, run_at, payload)
+        "INSERT INTO jobs (kind, available_after, payload)
          VALUES ('publish_event', $1, jsonb_build_object('publish_item_id', $2::text))",
     )
     .bind(publish_time)

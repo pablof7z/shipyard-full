@@ -21,10 +21,12 @@ CREATE TABLE sessions (
   expires_at TIMESTAMPTZ NOT NULL,
   revoked_at TIMESTAMPTZ,
   user_agent TEXT,
-  created_ip INET
+  created_ip INET,
+  CONSTRAINT sessions_expiry_after_issue CHECK (expires_at > issued_at)
 );
 
 CREATE INDEX sessions_user_pubkey_idx ON sessions(user_pubkey);
+CREATE INDEX sessions_expires_at_idx ON sessions(expires_at);
 CREATE INDEX sessions_active_idx ON sessions(user_pubkey, expires_at) WHERE revoked_at IS NULL;
 
 CREATE TYPE delegate_status AS ENUM ('active', 'revoked');
@@ -36,7 +38,11 @@ CREATE TABLE account_delegates (
   status delegate_status NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   revoked_at TIMESTAMPTZ,
-  PRIMARY KEY (owner_pubkey, delegate_pubkey)
+  PRIMARY KEY (owner_pubkey, delegate_pubkey),
+  CONSTRAINT account_delegates_revoked_at_matches_status CHECK (
+    (status = 'active' AND revoked_at IS NULL)
+    OR (status = 'revoked' AND revoked_at IS NOT NULL)
+  )
 );
 
 CREATE INDEX account_delegates_delegate_idx ON account_delegates(delegate_pubkey, status);
@@ -111,6 +117,7 @@ CREATE TABLE publish_items (
 );
 
 CREATE INDEX publish_items_owner_state_idx ON publish_items(owner_pubkey, state, publish_time);
+CREATE INDEX publish_items_state_idx ON publish_items(state);
 CREATE INDEX publish_items_due_idx ON publish_items(publish_time) WHERE state = 'SCHEDULED';
 CREATE INDEX publish_items_queue_idx ON publish_items(queue_id, publish_time);
 CREATE UNIQUE INDEX publish_items_event_id_idx ON publish_items(event_id) WHERE event_id IS NOT NULL;
@@ -126,35 +133,6 @@ CREATE TABLE proposal_revisions (
 
 CREATE INDEX proposal_revisions_item_idx ON proposal_revisions(publish_item_id, created_at DESC);
 
-CREATE TABLE publish_attempts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  publish_item_id UUID NOT NULL REFERENCES publish_items(id) ON DELETE CASCADE,
-  attempt INTEGER NOT NULL,
-  relay_url TEXT NOT NULL,
-  status TEXT NOT NULL,
-  error TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT publish_attempts_attempt_positive CHECK (attempt > 0),
-  CONSTRAINT publish_attempts_relay_nonempty CHECK (length(trim(relay_url)) > 0)
-);
-
-CREATE INDEX publish_attempts_item_idx ON publish_attempts(publish_item_id, attempt, relay_url);
-
-CREATE TYPE dvm_request_status AS ENUM ('received', 'scheduled', 'error');
-
-CREATE TABLE dvm_requests (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  request_event_id TEXT NOT NULL UNIQUE,
-  request_pubkey TEXT NOT NULL,
-  encrypted BOOLEAN NOT NULL DEFAULT false,
-  raw_request_event JSONB NOT NULL,
-  status dvm_request_status NOT NULL DEFAULT 'received',
-  error TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX dvm_requests_pubkey_idx ON dvm_requests(request_pubkey, created_at DESC);
-
 CREATE TYPE job_status AS ENUM ('ready', 'running', 'succeeded', 'failed', 'cancelled');
 CREATE TYPE job_type AS ENUM (
   'publish_event',
@@ -167,8 +145,8 @@ CREATE TYPE job_type AS ENUM (
 CREATE TABLE jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   kind job_type NOT NULL,
-  status job_status NOT NULL DEFAULT 'ready',
-  run_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  state job_status NOT NULL DEFAULT 'ready',
+  available_after TIMESTAMPTZ NOT NULL DEFAULT now(),
   locked_at TIMESTAMPTZ,
   locked_by TEXT,
   attempts INTEGER NOT NULL DEFAULT 0,
@@ -180,7 +158,45 @@ CREATE TABLE jobs (
   CONSTRAINT jobs_attempt_bounds CHECK (attempts >= 0 AND max_attempts > 0)
 );
 
-CREATE INDEX jobs_ready_idx ON jobs(run_at, kind) WHERE status = 'ready';
+CREATE INDEX jobs_ready_idx ON jobs(state, available_after) WHERE state = 'ready';
+
+CREATE TABLE publish_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  publish_item_id UUID NOT NULL REFERENCES publish_items(id) ON DELETE CASCADE,
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  attempt INTEGER NOT NULL,
+  relay_url TEXT NOT NULL,
+  status TEXT NOT NULL,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT publish_attempts_attempt_positive CHECK (attempt > 0),
+  CONSTRAINT publish_attempts_relay_nonempty CHECK (length(trim(relay_url)) > 0)
+);
+
+CREATE INDEX publish_attempts_item_idx ON publish_attempts(publish_item_id, attempt, relay_url);
+CREATE INDEX publish_attempts_job_id_idx ON publish_attempts(job_id);
+
+CREATE TYPE dvm_request_status AS ENUM ('received', 'scheduled', 'error');
+
+CREATE TABLE dvm_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_event_id TEXT NOT NULL UNIQUE,
+  request_pubkey TEXT NOT NULL,
+  encrypted BOOLEAN NOT NULL DEFAULT false,
+  encrypted_tags JSONB,
+  decrypted_tags JSONB,
+  relays TEXT[] NOT NULL DEFAULT '{}',
+  raw_request_event JSONB NOT NULL,
+  status dvm_request_status NOT NULL DEFAULT 'received',
+  error TEXT,
+  feedback_event_id TEXT,
+  feedback_content TEXT,
+  feedback_pubkey TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX dvm_requests_pubkey_idx ON dvm_requests(request_pubkey, created_at DESC);
 
 CREATE TABLE audit_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
