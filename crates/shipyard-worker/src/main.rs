@@ -1,13 +1,16 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
-use futures_util::{SinkExt, StreamExt};
-use serde::Deserialize;
-use shipyard_core::NostrEvent;
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 use std::time::Duration;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
+
+mod backoff;
+mod publish;
+mod relay;
+
+use backoff::{configured_base_backoff_seconds, retries_exhausted, retry_backoff_seconds};
+use publish::{fail_publish_item, process_publish_event, PublishJobFailure};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,17 +33,25 @@ async fn main() -> anyhow::Result<()> {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(5);
+    #[cfg(unix)]
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .context("failed to install SIGTERM handler")?;
 
     tracing::info!(%worker_id, tick_seconds, "shipyard-worker starting");
 
     loop {
+        #[cfg(unix)]
+        let shutdown = shutdown_signal(&mut sigterm);
+        #[cfg(not(unix))]
+        let shutdown = shutdown_signal();
+
         tokio::select! {
             result = run_once(&pool, &worker_id) => {
                 if let Err(error) = result {
                     tracing::error!(%error, "worker tick failed");
                 }
             }
-            _ = tokio::signal::ctrl_c() => {
+            _ = shutdown => {
                 tracing::info!("shipyard-worker shutting down");
                 break;
             }
@@ -50,6 +61,19 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(unix)]
+async fn shutdown_signal(sigterm: &mut tokio::signal::unix::Signal) {
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = sigterm.recv() => {}
+    }
+}
+
+#[cfg(not(unix))]
+async fn shutdown_signal() {
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 async fn run_once(pool: &PgPool, worker_id: &str) -> anyhow::Result<()> {
@@ -66,7 +90,7 @@ async fn run_once(pool: &PgPool, worker_id: &str) -> anyhow::Result<()> {
             Ok(()) => mark_job_succeeded(pool, job.id).await?,
             Err(error) => {
                 tracing::error!(job_id = %job.id, %error, "job failed");
-                mark_job_failed(pool, &job, error.to_string()).await?;
+                mark_job_failed(pool, &job, error).await?;
             }
         }
     }
@@ -121,224 +145,11 @@ async fn claim_job(pool: &PgPool, worker_id: &str) -> anyhow::Result<Option<Job>
     }))
 }
 
-async fn process_publish_event(pool: &PgPool, job: &Job) -> anyhow::Result<()> {
-    let payload: PublishEventPayload = serde_json::from_value(job.payload.clone())
-        .context("publish_event payload must include publish_item_id")?;
-
-    let row = sqlx::query(
-        "SELECT p.id, p.owner_pubkey, p.signed_event_json, p.publish_time, r.relay_urls
-         FROM publish_items p
-         LEFT JOIN relay_settings r ON r.owner_pubkey = p.owner_pubkey
-         WHERE p.id = $1 AND p.state IN ('SCHEDULED', 'FAILED')",
-    )
-    .bind(payload.publish_item_id)
-    .fetch_optional(pool)
-    .await?;
-
-    let Some(row) = row else {
-        tracing::warn!(publish_item_id = %payload.publish_item_id, "publish item not ready");
-        return Ok(());
-    };
-
-    let signed_event_json: serde_json::Value = row.try_get("signed_event_json")?;
-    let signed_event: NostrEvent =
-        serde_json::from_value(signed_event_json).context("stored signed event is invalid")?;
-    let publish_time: DateTime<Utc> = row.try_get("publish_time")?;
-    let relay_urls: Vec<String> = row
-        .try_get::<Option<Vec<String>>, _>("relay_urls")?
-        .unwrap_or_default();
-
-    if relay_urls.is_empty() {
-        fail_publish_item(
-            pool,
-            payload.publish_item_id,
-            "no_relays_configured",
-            "No relays set up. Add at least one in Settings before publishing.",
-        )
-        .await?;
-        return Ok(());
-    }
-
-    if publish_time > Utc::now() {
-        reschedule_job(pool, job.id, publish_time).await?;
-        return Ok(());
-    }
-
-    sqlx::query("UPDATE publish_items SET state = 'PUBLISHING', updated_at = now() WHERE id = $1")
-        .bind(payload.publish_item_id)
-        .execute(pool)
-        .await?;
-
-    let attempt = job.attempts.max(1);
-    let mut accepted_relays = Vec::new();
-    for relay_url in &relay_urls {
-        let result = publish_to_relay(relay_url, &signed_event).await;
-        let status_or_error = result
-            .as_ref()
-            .err()
-            .map(String::as_str)
-            .unwrap_or("accepted");
-        record_publish_attempt(
-            pool,
-            job.id,
-            payload.publish_item_id,
-            attempt,
-            relay_url,
-            status_or_error,
-        )
-        .await?;
-
-        if result.is_ok() {
-            accepted_relays.push(relay_url.clone());
-        }
-    }
-
-    if accepted_relays.is_empty() {
-        fail_publish_item(
-            pool,
-            payload.publish_item_id,
-            "relay_publish_failed",
-            "None of your relays accepted this post. Check relay settings.",
-        )
-        .await?;
-    } else {
-        sqlx::query(
-            "UPDATE publish_items
-             SET state = 'PUBLISHED',
-                 published_at = now(),
-                 published_to = $2,
-                 failure_code = NULL,
-                 failure_message = NULL,
-                 failed_at = NULL,
-                 updated_at = now()
-             WHERE id = $1",
-        )
-        .bind(payload.publish_item_id)
-        .bind(&accepted_relays)
-        .execute(pool)
-        .await?;
-    }
-
-    Ok(())
-}
-
-async fn publish_to_relay(relay_url: &str, event: &NostrEvent) -> Result<(), String> {
-    if !(relay_url.starts_with("wss://") || relay_url.starts_with("ws://")) {
-        return Err("invalid relay URL".to_string());
-    }
-
-    let event_id = event
-        .id
-        .as_deref()
-        .ok_or_else(|| "event missing id".to_string())?;
-    let (mut socket, _) = tokio::time::timeout(Duration::from_secs(10), connect_async(relay_url))
-        .await
-        .map_err(|_| "relay connection timed out".to_string())?
-        .map_err(|error| format!("relay connection failed: {error}"))?;
-
-    let message = serde_json::json!(["EVENT", event]).to_string();
-    socket
-        .send(Message::Text(message))
-        .await
-        .map_err(|error| format!("relay send failed: {error}"))?;
-
-    loop {
-        let next = tokio::time::timeout(Duration::from_secs(10), socket.next())
-            .await
-            .map_err(|_| "relay OK timed out".to_string())?;
-
-        let Some(message) = next else {
-            return Err("relay closed before OK".to_string());
-        };
-        let message = message.map_err(|error| format!("relay read failed: {error}"))?;
-        let Message::Text(text) = message else {
-            continue;
-        };
-
-        let value: serde_json::Value = serde_json::from_str(&text)
-            .map_err(|error| format!("relay sent invalid JSON: {error}"))?;
-        let Some(array) = value.as_array() else {
-            continue;
-        };
-        if array.first().and_then(serde_json::Value::as_str) != Some("OK") {
-            continue;
-        }
-        if array.get(1).and_then(serde_json::Value::as_str) != Some(event_id) {
-            continue;
-        }
-
-        let accepted = array
-            .get(2)
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false);
-        let relay_message = array
-            .get(3)
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("relay rejected event");
-        return if accepted {
-            Ok(())
-        } else {
-            Err(relay_message.to_string())
-        };
-    }
-}
-
-async fn record_publish_attempt(
+pub(crate) async fn reschedule_job(
     pool: &PgPool,
     job_id: Uuid,
-    publish_item_id: Uuid,
-    attempt: i32,
-    relay_url: &str,
-    status_or_error: &str,
+    run_at: DateTime<Utc>,
 ) -> anyhow::Result<()> {
-    let status = if status_or_error == "accepted" {
-        "accepted"
-    } else {
-        "error"
-    };
-    let error = (status == "error").then_some(status_or_error);
-
-    sqlx::query(
-        "INSERT INTO publish_attempts (publish_item_id, job_id, attempt, relay_url, status, error)
-         VALUES ($1, $2, $3, $4, $5, $6)",
-    )
-    .bind(publish_item_id)
-    .bind(job_id)
-    .bind(attempt)
-    .bind(relay_url)
-    .bind(status)
-    .bind(error)
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
-async fn fail_publish_item(
-    pool: &PgPool,
-    publish_item_id: Uuid,
-    failure_code: &str,
-    failure_message: &str,
-) -> anyhow::Result<()> {
-    sqlx::query(
-        "UPDATE publish_items
-         SET state = 'FAILED',
-             failure_code = $2,
-             failure_message = $3,
-             failed_at = now(),
-             updated_at = now()
-         WHERE id = $1",
-    )
-    .bind(publish_item_id)
-    .bind(failure_code)
-    .bind(failure_message)
-    .execute(pool)
-    .await?;
-
-    Ok(())
-}
-
-async fn reschedule_job(pool: &PgPool, job_id: Uuid, run_at: DateTime<Utc>) -> anyhow::Result<()> {
     sqlx::query(
         "UPDATE jobs
          SET state = 'ready',
@@ -372,13 +183,17 @@ async fn mark_job_succeeded(pool: &PgPool, job_id: Uuid) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn mark_job_failed(pool: &PgPool, job: &Job, error: String) -> anyhow::Result<()> {
-    let exhausted = job.attempts >= job.max_attempts;
+async fn mark_job_failed(pool: &PgPool, job: &Job, error: anyhow::Error) -> anyhow::Result<()> {
+    let publish_failure = error.downcast_ref::<PublishJobFailure>().cloned();
+    let error = error.to_string();
+    let exhausted = retries_exhausted(job.attempts, job.max_attempts);
     let state = if exhausted { "failed" } else { "ready" };
     let available_after = if exhausted {
         Utc::now()
     } else {
-        Utc::now() + chrono::Duration::seconds(30 * i64::from(job.attempts))
+        let base_backoff_seconds = configured_base_backoff_seconds();
+        Utc::now()
+            + chrono::Duration::seconds(retry_backoff_seconds(job.attempts, base_backoff_seconds))
     };
 
     sqlx::query(
@@ -398,19 +213,26 @@ async fn mark_job_failed(pool: &PgPool, job: &Job, error: String) -> anyhow::Res
     .execute(pool)
     .await?;
 
+    if exhausted {
+        if let Some(failure) = publish_failure {
+            fail_publish_item(
+                pool,
+                failure.publish_item_id,
+                failure.failure_code,
+                failure.failure_message,
+            )
+            .await?;
+        }
+    }
+
     Ok(())
 }
 
 #[derive(Debug)]
-struct Job {
-    id: Uuid,
-    kind: String,
-    attempts: i32,
-    max_attempts: i32,
-    payload: serde_json::Value,
-}
-
-#[derive(Debug, Deserialize)]
-struct PublishEventPayload {
-    publish_item_id: Uuid,
+pub(crate) struct Job {
+    pub(crate) id: Uuid,
+    pub(crate) kind: String,
+    pub(crate) attempts: i32,
+    pub(crate) max_attempts: i32,
+    pub(crate) payload: serde_json::Value,
 }
