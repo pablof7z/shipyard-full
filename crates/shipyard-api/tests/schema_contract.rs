@@ -1,4 +1,8 @@
 const MIGRATION: &str = include_str!("../../../migrations/0001_initial.sql");
+const DVM_IDEMPOTENCY_MIGRATION: &str =
+    include_str!("../../../migrations/0002_dvm_idempotency.sql");
+const DVM_FAILURE_MIGRATION: &str =
+    include_str!("../../../migrations/0003_dvm_failure_handling.sql");
 
 #[test]
 fn publish_attempts_link_to_jobs_for_retry_audit() {
@@ -43,6 +47,31 @@ fn dvm_requests_store_kind_5905_and_7000_contract_fields() {
         assert!(
             MIGRATION.contains(required),
             "dvm_requests missing required field/constraint: {required}"
+        );
+    }
+}
+
+#[test]
+fn dvm_idempotency_migration_claims_by_input_event_and_dvm() {
+    for required in [
+        "ADD COLUMN IF NOT EXISTS dvm_pubkey TEXT NOT NULL",
+        "ADD COLUMN IF NOT EXISTS input_event_id TEXT",
+        "UNIQUE (input_event_id, dvm_pubkey)",
+        "CREATE TYPE dvm_request_status AS ENUM ('pending', 'processing', 'succeeded', 'failed')",
+    ] {
+        assert!(
+            DVM_IDEMPOTENCY_MIGRATION.contains(required),
+            "DVM idempotency migration missing required change: {required}"
+        );
+    }
+}
+
+#[test]
+fn dvm_failure_migration_records_typed_failure_fields() {
+    for required in ["failure_code TEXT", "failure_message TEXT"] {
+        assert!(
+            DVM_FAILURE_MIGRATION.contains(required),
+            "DVM failure migration missing required field: {required}"
         );
     }
 }

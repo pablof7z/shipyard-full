@@ -1,34 +1,11 @@
 use anyhow::Context;
-use chrono::Utc;
 use shipyard_core::{
-    dvm::{build_signed_feedback_event, feedback_tags, DvmRequestEvent, DVM_FEEDBACK_KIND},
-    nip04_decrypt, nip04_encrypt, pubkey_from_secret_hex, NostrEvent, Pubkey,
+    dvm::{
+        build_signed_feedback_event, feedback_tags, DvmFeedbackMetadata, DvmRequestEvent,
+        DVM_FEEDBACK_KIND,
+    },
+    nip04_decrypt, nip04_encrypt, pubkey_from_secret_hex, NostrEvent,
 };
-
-pub(crate) fn build_error_feedback(
-    feedback_secret_hex: &str,
-    request_event_id: &str,
-    raw_request_event: serde_json::Value,
-    error_message: &str,
-) -> anyhow::Result<NostrEvent> {
-    match serde_json::from_value::<DvmRequestEvent>(raw_request_event) {
-        Ok(request_event) if has_encrypted_tag(&request_event) => build_encrypted_feedback_event(
-            feedback_secret_hex,
-            &request_event.pubkey,
-            "error",
-            request_event_id,
-            Some(error_message),
-            Utc::now().timestamp(),
-        ),
-        _ => Ok(build_signed_feedback_event(
-            feedback_secret_hex,
-            "error",
-            request_event_id,
-            Some(error_message),
-            Utc::now().timestamp(),
-        )?),
-    }
-}
 
 pub(crate) fn has_encrypted_tag(request_event: &DvmRequestEvent) -> bool {
     request_event
@@ -50,22 +27,37 @@ pub(crate) fn decrypt_request_tags(
     serde_json::from_str(&plaintext).context("decrypted DVM request tags are invalid")
 }
 
+pub(crate) fn build_feedback_event(
+    secret_hex: &str,
+    encrypted: bool,
+    metadata: DvmFeedbackMetadata<'_>,
+    created_at: i64,
+) -> anyhow::Result<NostrEvent> {
+    if encrypted {
+        build_encrypted_feedback_event(secret_hex, metadata, created_at)
+    } else {
+        Ok(build_signed_feedback_event(
+            secret_hex, metadata, created_at,
+        )?)
+    }
+}
+
 pub(crate) fn build_encrypted_feedback_event(
     secret_hex: &str,
-    recipient_pubkey: &Pubkey,
-    status: &str,
-    request_event_id: &str,
-    message: Option<&str>,
+    metadata: DvmFeedbackMetadata<'_>,
     created_at: i64,
 ) -> anyhow::Result<NostrEvent> {
     let public_tags = vec![
         vec!["encrypted".to_string()],
-        vec!["p".to_string(), recipient_pubkey.as_str().to_string()],
+        vec![
+            "p".to_string(),
+            metadata.recipient_pubkey.as_str().to_string(),
+        ],
     ];
-    let private_tags = feedback_tags(status, request_event_id, message);
+    let private_tags = feedback_tags(metadata);
     let content = nip04_encrypt(
         secret_hex,
-        recipient_pubkey,
+        metadata.recipient_pubkey,
         &serde_json::to_string(&private_tags)?,
         random_iv()?,
     )?;
