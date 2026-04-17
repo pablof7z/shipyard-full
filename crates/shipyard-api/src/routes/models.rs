@@ -101,7 +101,7 @@ pub(crate) async fn require_account_access(
     let has_access: bool = sqlx::query_scalar(
         "SELECT EXISTS (
            SELECT 1 FROM account_delegates
-           WHERE owner_pubkey = $1 AND delegate_pubkey = $2 AND status = 'active'
+           WHERE owner_pubkey = $1 AND delegate_pubkey = $2 AND status = 'active' AND revoked_at IS NULL
          )",
     )
     .bind(owner_pubkey.as_str())
@@ -226,5 +226,20 @@ impl From<sqlx::Error> for AppError {
     fn from(error: sqlx::Error) -> Self {
         tracing::error!(%error, "database error");
         AppError::internal("database_error", "The database query failed.")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    const SOURCE: &str = include_str!("models.rs");
+
+    #[test]
+    fn account_access_requires_delegate_row_to_be_active_and_non_revoked() {
+        let implementation = SOURCE.split("#[cfg(test)]").next().unwrap();
+
+        assert!(
+            implementation.contains("owner_pubkey = $1 AND delegate_pubkey = $2 AND status = 'active' AND revoked_at IS NULL"),
+            "delegate access must require an active, non-revoked owner/delegate row"
+        );
     }
 }

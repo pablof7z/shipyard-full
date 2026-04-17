@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use shipyard_core::Pubkey;
 use sqlx::Row;
 
-use super::models::{parse_db_pubkey, require_owner, require_session, ApiState, AppError};
+use super::models::{
+    parse_db_pubkey, require_account_access, require_owner, require_session, ApiState, AppError,
+};
 
 pub(super) fn router() -> Router<ApiState> {
     Router::new()
@@ -69,7 +71,7 @@ async fn invite_delegate(
         .map_err(|err| AppError::bad_request("pubkey_invalid", err.to_string()))?;
     let delegate_pubkey = Pubkey::parse(request.delegate_pubkey)
         .map_err(|err| AppError::bad_request("delegate_pubkey_invalid", err.to_string()))?;
-    require_owner(&session, &owner_pubkey)?;
+    require_account_access(&state, &session, &owner_pubkey).await?;
 
     let mut tx = state.pool.begin().await?;
     sqlx::query(
@@ -122,7 +124,7 @@ async fn revoke_delegate(
         .map_err(|err| AppError::bad_request("pubkey_invalid", err.to_string()))?;
     let delegate_pubkey = Pubkey::parse(delegate_pubkey)
         .map_err(|err| AppError::bad_request("delegate_pubkey_invalid", err.to_string()))?;
-    require_owner(&session, &owner_pubkey)?;
+    require_account_access(&state, &session, &owner_pubkey).await?;
 
     sqlx::query(
         "UPDATE account_delegates
@@ -148,4 +150,22 @@ struct DelegateResponse {
     status: String,
     created_at: DateTime<Utc>,
     revoked_at: Option<DateTime<Utc>>,
+}
+
+#[cfg(test)]
+mod tests {
+    const SOURCE: &str = include_str!("delegates.rs");
+
+    #[test]
+    fn mutating_delegate_routes_allow_owner_or_active_delegate_access() {
+        let implementation = SOURCE.split("#[cfg(test)]").next().unwrap();
+        let access_checks = implementation
+            .matches("require_account_access(&state, &session, &owner_pubkey).await?")
+            .count();
+
+        assert_eq!(
+            access_checks, 2,
+            "invite and revoke delegate routes must both use account access checks"
+        );
+    }
 }

@@ -86,6 +86,7 @@ async fn auth_session(
 ) -> Result<Json<SessionResponse>, AppError> {
     let session = require_session(&state, &headers).await?;
     Ok(Json(SessionResponse {
+        session_id: session.session_id,
         user_pubkey: session.user_pubkey,
         expires_at: session.expires_at,
     }))
@@ -105,6 +106,37 @@ struct LoginResponse {
 
 #[derive(Debug, Serialize)]
 struct SessionResponse {
+    session_id: uuid::Uuid,
     user_pubkey: Pubkey,
     expires_at: DateTime<Utc>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+    use serde_json::json;
+    use uuid::Uuid;
+
+    #[test]
+    fn session_response_includes_session_id_user_pubkey_and_expiry() {
+        let user_pubkey =
+            Pubkey::parse("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+        let expires_at = Utc.with_ymd_and_hms(2026, 4, 17, 12, 0, 0).unwrap();
+        let response = SessionResponse {
+            session_id: Uuid::nil(),
+            user_pubkey: user_pubkey.clone(),
+            expires_at,
+        };
+
+        assert_eq!(
+            serde_json::to_value(response).unwrap(),
+            json!({
+                "session_id": Uuid::nil(),
+                "user_pubkey": user_pubkey,
+                "expires_at": expires_at,
+            })
+        );
+    }
 }
