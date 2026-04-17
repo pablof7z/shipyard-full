@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shipyard — Schedule your Nostr posts</title>
+  <meta name="description" content="Schedule posts, set up publishing queues, repost for other timezones, and let collaborators draft for your account. Web, mobile, and CLI.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #f06449;
+      --accent-hover: #f4806a;
+      --accent-text-on: #ffffff;
+      --bg-primary: #0c0c0c;
+      --bg-secondary: #111111;
+      --bg-tertiary: #161616;
+      --bg-hover: #1e1e1e;
+      --border-subtle: #1e1e1e;
+      --border-default: #262626;
+      --border-strong: #333333;
+      --text-primary: #ededec;
+      --text-secondary: #a1a1a0;
+      --text-tertiary: #636362;
+      --text-muted: #4a4a49;
+      --code-bg: #111111;
+      --code-border: #262626;
+      --rule-color: #262626;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #ffffff;
+      --bg-secondary: #fafafa;
+      --bg-tertiary: #f5f5f4;
+      --bg-hover: #f0f0ef;
+      --border-subtle: #e8e8e7;
+      --border-default: #e0e0df;
+      --border-strong: #d0d0cf;
+      --text-primary: #1a1a19;
+      --text-secondary: #5c5c5b;
+      --text-tertiary: #8a8a89;
+      --text-muted: #b0b0af;
+      --code-bg: #f5f5f4;
+      --code-border: #e0e0df;
+      --rule-color: #d0d0cf;
+    }
+
+    html {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ── Column ── */
+    .col {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Nav — minimal, just a line at the top ── */
+    nav {
+      padding: 20px 24px;
+    }
+
+    .nav-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-primary);
+    }
+
+    .nav-logo {
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-logo svg {
+      width: 16px;
+      height: 16px;
+      fill: var(--accent-text-on);
+    }
+
+    .nav-wordmark {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* ── Theme toggle ── */
+    .theme-toggle {
+      background: none;
+      border: none;
+      padding: 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      transition: color 0.15s;
+    }
+
+    .theme-toggle:hover {
+      color: var(--text-secondary);
+    }
+
+    .theme-toggle svg { width: 16px; height: 16px; }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="light"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="light"] .theme-toggle .icon-moon { display: none; }
+
+    .nav-signin {
+      color: var(--text-tertiary);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    .nav-signin:hover {
+      color: var(--text-primary);
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 100px 24px 0;
+    }
+
+    .hero .col {
+      padding: 0;
+    }
+
+    .hero-kicker {
+      display: inline-block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 24px;
+      letter-spacing: 0.02em;
+    }
+
+    .hero h1 {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      max-width: 580px;
+    }
+
+    .hero h1 span {
+      display: block;
+      color: var(--text-tertiary);
+      font-weight: 700;
+    }
+
+    .hero-sub {
+      margin-top: 32px;
+      font-size: 1.1875rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      max-width: 480px;
+    }
+
+    .hero-cta {
+      margin-top: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: var(--accent-text-on);
+      border: none;
+      border-radius: 7px;
+      padding: 12px 24px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+
+    .hero-cta:hover {
+      background: var(--accent-hover);
+    }
+
+    /* ── Thick rule ── */
+    hr {
+      border: none;
+      height: 3px;
+      background: var(--rule-color);
+      margin: 80px auto;
+      max-width: 640px;
+    }
+
+    hr.thin {
+      height: 1px;
+      background: var(--border-subtle);
+      margin: 48px auto;
+    }
+
+    /* ── Section prose ── */
+    .prose {
+      padding: 0 24px;
+    }
+
+    .prose .col {
+      padding: 0;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .prose h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+
+    .prose p {
+      font-size: 1.0625rem;
+      line-height: 1.75;
+      color: var(--text-secondary);
+    }
+
+    .prose p + p {
+      margin-top: 16px;
+    }
+
+    .prose p strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* ── Feature blocks — big text, no cards ── */
+    .feature-block {
+      padding: 0 24px;
+    }
+
+    .feature-block .col {
+      padding: 0;
+    }
+
+    .feature-block + .feature-block {
+      margin-top: 56px;
+    }
+
+    .feature-block h3 {
+      font-size: 1.375rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+
+    .feature-block p {
+      font-size: 1.0625rem;
+      line-height: 1.75;
+      color: var(--text-secondary);
+    }
+
+    /* ── Steps — oversized numbers ── */
+    .steps-list {
+      padding: 0 24px;
+    }
+
+    .steps-list .col {
+      padding: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 24px;
+      align-items: baseline;
+    }
+
+    .step + .step {
+      margin-top: 32px;
+    }
+
+    .step-num {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--text-muted);
+      line-height: 1;
+      flex-shrink: 0;
+      width: 48px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .step-text {
+      font-size: 1.0625rem;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      padding-top: 6px;
+    }
+
+    .step-text strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* ── Platforms — just words ── */
+    .platforms {
+      display: flex;
+      gap: 24px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+
+    .platform {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      border-bottom: 2px solid var(--border-default);
+      padding-bottom: 2px;
+    }
+
+    /* ── CLI ── */
+    .cli-block {
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 24px;
+    }
+
+    .cli-block + .cli-block {
+      margin-top: 12px;
+    }
+
+    .cli-block pre {
+      padding: 20px 24px;
+      margin: 0;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      overflow-x: auto;
+      color: var(--text-primary);
+    }
+
+    .cli-block .prompt {
+      color: var(--accent);
+      user-select: none;
+    }
+
+    .cli-block .output {
+      color: var(--text-tertiary);
+    }
+
+    /* ── Keys — boxed callout ── */
+    .callout {
+      border: 2px solid var(--border-default);
+      border-radius: 8px;
+      padding: 32px;
+      margin-top: 24px;
+    }
+
+    .callout p {
+      font-size: 1.0625rem;
+      line-height: 1.75;
+      color: var(--text-secondary);
+    }
+
+    /* ── Final CTA ── */
+    .final-section {
+      text-align: center;
+      padding: 0 24px 120px;
+    }
+
+    .final-section h2 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 28px;
+    }
+
+    .final-section .hero-cta {
+      margin-top: 0;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 32px 24px;
+    }
+
+    .footer-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-brand {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      color: var(--text-tertiary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 680px) {
+      .hero { padding-top: 72px; }
+
+      .hero h1 {
+        font-size: 2.5rem;
+      }
+
+      .hero-sub {
+        font-size: 1.0625rem;
+      }
+
+      hr { margin: 56px auto; }
+
+      .prose h2 { font-size: 1.625rem; }
+
+      .feature-block h3 { font-size: 1.1875rem; }
+
+      .feature-block + .feature-block { margin-top: 40px; }
+
+      .step-num { font-size: 2.25rem; width: 36px; }
+      .step { gap: 16px; }
+
+      .final-section h2 { font-size: 1.75rem; }
+      .final-section { padding-bottom: 80px; }
+
+      .callout { padding: 24px; }
+    }
+
+    @media (max-width: 440px) {
+      .hero h1 {
+        font-size: 2rem;
+      }
+
+      .hero-sub {
+        font-size: 1rem;
+      }
+
+      .prose h2 { font-size: 1.375rem; }
+
+      .col, .prose, .feature-block, .steps-list, .final-section {
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+
+      nav { padding: 16px; }
+
+      .cli-block pre {
+        padding: 16px;
+        font-size: 12px;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        gap: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">
+        <div class="nav-logo">
+          <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 2h10l-2 6 2 6H3l2-6-2-6z"/>
+          </svg>
+        </div>
+        <span class="nav-wordmark">Shipyard</span>
+      </a>
+      <div class="nav-actions">
+        <button class="theme-toggle" aria-label="Toggle theme">
+          <svg class="icon-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 8.5A6 6 0 0 1 7.5 2a6 6 0 1 0 6.5 6.5z"/>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="8" r="3"/>
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/>
+          </svg>
+        </button>
+        <a href="#" class="nav-signin">Sign in</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="col">
+      <div class="hero-kicker">Shipyard for Nostr</div>
+      <h1>A quiet space for loud ideas.
+        <span>Focused writing for Nostr.</span>
+      </h1>
+      <p class="hero-sub">Write now, publish later. Set up queues so your posts go out while you sleep. Repost things for people in other timezones. Simple scheduling for Nostr.</p>
+      <a href="#" class="hero-cta">Sign in with Nostr</a>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Schedule posts -->
+  <div class="feature-block">
+    <div class="col">
+      <h3>Schedule posts</h3>
+      <p>Write a post, pick a time. Shipyard publishes it to your relays when the time comes.</p>
+    </div>
+  </div>
+
+  <!-- Set up queues -->
+  <div class="feature-block">
+    <div class="col">
+      <h3>Set up queues</h3>
+      <p>Create a queue with a cadence — once a day, twice a week, whatever. Drop posts in and they go out on schedule.</p>
+    </div>
+  </div>
+
+  <!-- Repost on a delay -->
+  <div class="feature-block">
+    <div class="col">
+      <h3>Repost on a delay</h3>
+      <p>See something good? Schedule a repost for later so your followers in other timezones see it too. Without an algorithm boosting things, timing matters.</p>
+    </div>
+  </div>
+
+  <!-- Let others draft for you -->
+  <div class="feature-block">
+    <div class="col">
+      <h3>Let others draft for you</h3>
+      <p>Invite someone to write posts for your account. They propose, you review and sign. Nothing publishes without your key.</p>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- How it works -->
+  <div class="prose">
+    <div class="col">
+      <div class="section-label">How it works</div>
+    </div>
+  </div>
+
+  <div class="steps-list">
+    <div class="col">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>Sign in</strong> with your Nostr key — extension, private key, or remote signer.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Write a post</strong> or pick something to repost.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Schedule it</strong> for a specific time, add it to a queue, or publish right now.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Shipyard sends it to your relays and tells you which ones got it.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Works everywhere -->
+  <div class="prose">
+    <div class="col">
+      <div class="section-label">Works everywhere</div>
+      <p>Web app, mobile app, and a CLI if you want to script it. Same account, same queues, same schedule.</p>
+      <div class="platforms">
+        <span class="platform">Web</span>
+        <span class="platform">Mobile</span>
+        <span class="platform">CLI</span>
+        <span class="platform">DVM</span>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- CLI -->
+  <div class="prose">
+    <div class="col">
+      <div class="section-label">CLI</div>
+      <p>Schedule posts, manage queues, and check status from your terminal. Works for scripts, cron jobs, and AI agents.</p>
+      <div class="cli-block">
+        <pre><span class="prompt">$</span> shipyard schedule --content "Hello Nostr" --time "tomorrow 9am"
+<span class="output">Scheduled. Publishing Apr 18 at 9:00 AM.</span></pre>
+      </div>
+      <div class="cli-block">
+        <pre><span class="prompt">$</span> shipyard propose --to npub1you... --content "Draft post" --queue daily
+<span class="output">Proposed. Waiting for owner signature.</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Final CTA -->
+  <div class="final-section">
+    <div class="col" style="padding:0;">
+      <h2>Schedule your Nostr posts.</h2>
+      <a href="#" class="hero-cta">Sign in with Nostr</a>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">Shipyard</div>
+      <ul class="footer-links">
+        <li><a href="#">Docs</a></li>
+        <li><a href="#">CLI</a></li>
+        <li><a href="#">Source</a></li>
+        <li><a href="#">Nostr</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script>
+    const toggle = document.querySelector('.theme-toggle');
+    const html = document.documentElement;
+
+    const saved = localStorage.getItem('theme');
+    if (saved) {
+      html.setAttribute('data-theme', saved);
+    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      html.setAttribute('data-theme', 'light');
+    }
+
+    toggle.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    });
+  </script>
+
+</body>
+</html>
