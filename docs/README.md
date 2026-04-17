@@ -48,18 +48,20 @@ Protocol references used:
 2. [State Machine Spec](./state-machine-spec.md)
 3. [Protocols and APIs](./protocols-and-apis.md)
 4. [Technical Architecture Spec](./technical-architecture-spec.md)
-5. [Template Integration Spec](./template-integration-spec.md)
-6. [Mobile Spec](./mobile-spec.md)
-7. [Shipyard CLI and Skill Spec](./shipyard-cli-and-skill-spec.md)
-8. [Legacy System Analysis](./legacy-system-analysis.md)
-9. [Legacy Technical Spec](./legacy-technical-spec.md)
-10. [Out of Scope and Future](./out-of-scope-and-future.md)
+5. [Implementation Plan](./implementation-plan.md)
+6. [Template Integration Spec](./template-integration-spec.md)
+7. [Mobile Spec](./mobile-spec.md)
+8. [Shipyard CLI and Skill Spec](./shipyard-cli-and-skill-spec.md)
+9. [Legacy System Analysis](./legacy-system-analysis.md)
+10. [Legacy Technical Spec](./legacy-technical-spec.md)
+11. [Out of Scope and Future](./out-of-scope-and-future.md)
 
 ## Locked Product Decisions
 
 These decisions are requirements for the reimplementation:
 
 - Preserve the DVM scheduling surface. The service must keep compatibility with the existing kind `5905` request and feedback behavior.
+- Rust is the backend implementation approach. The API, worker, DVM service, shared domain logic, CLI, and mobile core are Rust. SvelteKit is the browser client and must not own durable backend behavior.
 - Do not add analytics or performance feedback as a product feature.
 - Use Blossom only for media uploads.
 - Resolve Blossom upload servers from the user's Blossom server list. If none exists, default to `https://blossom.primal.net`.

@@ -161,6 +161,15 @@ Implementation notes:
 - Local notifications can be used for locally known scheduled times.
 - Notification settings must be per device and per account.
 
+Implemented backend registration contract:
+
+- `GET /v1/devices`
+- `POST /v1/devices`
+- `PATCH /v1/devices/{id}`
+- `DELETE /v1/devices/{id}`
+
+Device rows are owned by the authenticated user and may optionally be associated with an owner account after account/delegate authorization.
+
 ## Offline Behavior
 
 Offline support should prioritize writing:
@@ -200,4 +209,3 @@ Mobile v1 is complete when a user can:
 - Propose a queued or timed post for an owner account.
 - Review and sign proposals as owner.
 - See publish success/failure state.
-

@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/shipyard-core",
+  "crates/shipyard-api",
+  "crates/shipyard-worker",
+  "crates/shipyard-dvm",
+  "crates/shipyard-cli",
+  "crates/shipyard-mobile-core",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/shipyard/shipyard"
+rust-version = "1.78"
+
+[workspace.dependencies]
+anyhow = "1"
+aes = "0.8"
+axum = "0.7"
+base64 = "0.22"
+cbc = { version = "0.1", features = ["alloc"] }
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+secp256k1 = { version = "0.29", features = ["global-context"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid", "json"] }
+thiserror = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+getrandom = "0.3"
+dirs = "6"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1", features = ["serde", "v4"] }

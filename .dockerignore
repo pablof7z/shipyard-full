@@ -1,0 +1,10 @@
+.git
+target
+node_modules
+apps/web/node_modules
+apps/web/.svelte-kit
+apps/web/build
+shipyard-previous
+*.log
+.env
+.env.local

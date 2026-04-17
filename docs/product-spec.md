@@ -13,6 +13,30 @@ The rebuilt product should feel like one coherent publishing system across all c
 
 The product is not an analytics dashboard, growth tool, ad platform, or generalized agent publishing system.
 
+## Implementation Approach
+
+Shipyard uses a Rust backend architecture.
+
+Authoritative server-side product behavior must live in Rust services:
+
+- HTTP API for web, mobile, CLI, and automation clients.
+- Durable publish worker.
+- DVM relay listener and kind `5905` processor.
+- Shared domain/state-machine crate.
+- Rust CLI.
+- Shared Rust mobile core where it reduces duplicate validation or client behavior.
+
+The SvelteKit web app remains the primary browser client, but it must not become the authoritative backend. SvelteKit can serve UI, hold client-side NDK/session behavior, and call Shipyard APIs. Persistence, authorization, queue assignment, publish state transitions, relay publishing, DVM processing, and audit-critical validation belong to Rust services.
+
+This boundary exists because Shipyard is protocol-heavy and operationally durable:
+
+- Nostr event validation, event IDs, signatures, DVM parsing, encryption helpers, and relay publishing need strict and repeatable behavior.
+- Queue scheduling and publish state transitions must reject invalid states at service boundaries.
+- Workers and relay listeners are long-lived network services that need predictable runtime behavior.
+- The same domain logic should be reusable by API, worker, DVM, CLI, and native mobile bindings where practical.
+
+TypeScript is used for browser UI, NDK integration, client signing UX, and SvelteKit route orchestration. It is not used for Shipyard's durable backend services.
+
 ## Core User Jobs
 
 Shipyard must support these user jobs:
@@ -290,4 +314,3 @@ Core capabilities:
 - Emit JSON for automation.
 
 The CLI must be designed for use by both humans and agents. The agent integration is limited to a `SKILL.md` that installs and uses the CLI.
-

@@ -1,1 +1,12 @@
 shipyard-previous
+target
+node_modules
+.svelte-kit
+build
+dist
+.env
+.env.local
+*.log
+*.db
+coverage
+.playwright-mcp
