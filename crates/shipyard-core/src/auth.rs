@@ -147,3 +147,155 @@ fn tag_value<'a>(tags: &'a [Vec<String>], name: &str) -> Option<&'a str> {
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{Duration, TimeZone};
+    use secp256k1::{Keypair, SecretKey, XOnlyPublicKey};
+
+    const SECRET: &str = "3333333333333333333333333333333333333333333333333333333333333333";
+    const DOMAIN: &str = "api.shipyard.example";
+    const METHOD: &str = "GET";
+    const URL: &str = "https://api.shipyard.example/v1/session";
+
+    fn now() -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 4, 17, 10, 0, 0).unwrap()
+    }
+
+    fn auth_tags() -> Vec<Vec<String>> {
+        vec![
+            vec!["domain".to_string(), DOMAIN.to_string()],
+            vec!["method".to_string(), "get".to_string()],
+            vec!["u".to_string(), URL.to_string()],
+        ]
+    }
+
+    fn signed_auth_event(created_at: i64, kind: u64, tags: Vec<Vec<String>>) -> AuthEvent {
+        let secp = Secp256k1::new();
+        let secret_bytes = hex::decode(SECRET).unwrap();
+        let secret_key = SecretKey::from_slice(&secret_bytes).unwrap();
+        let keypair = Keypair::from_secret_key(&secp, &secret_key);
+        let (public_key, _) = XOnlyPublicKey::from_keypair(&keypair);
+        let pubkey = hex::encode(public_key.serialize());
+        let content = String::new();
+        let serialized = serde_json::json!([0, pubkey, created_at, kind, tags, content]);
+        let id = hex::encode(Sha256::digest(serialized.to_string().as_bytes()));
+        let id_bytes = hex::decode(&id).unwrap();
+        let message = Message::from_digest_slice(&id_bytes).unwrap();
+        let sig = secp
+            .sign_schnorr_no_aux_rand(&message, &keypair)
+            .to_string();
+
+        AuthEvent {
+            id,
+            pubkey,
+            created_at,
+            kind,
+            tags,
+            content,
+            sig,
+        }
+    }
+
+    #[test]
+    fn verifies_valid_kind_27235_auth_proof_and_returns_delegate_pubkey() {
+        let event = signed_auth_event(now().timestamp(), 27_235, auth_tags());
+        let proof = AuthProof {
+            event: event.clone(),
+            expected_domain: DOMAIN.to_string(),
+            expected_method: METHOD.to_string(),
+            expected_url: URL.to_string(),
+        };
+
+        let delegate_pubkey = proof.verify(now()).unwrap();
+
+        assert_eq!(delegate_pubkey.as_str(), event.pubkey);
+    }
+
+    #[test]
+    fn rejects_wrong_kind_events() {
+        let event = signed_auth_event(now().timestamp(), 1, auth_tags());
+
+        assert_eq!(
+            event
+                .verify_http_auth(DOMAIN, METHOD, URL, now())
+                .unwrap_err(),
+            AuthProofError::WrongKind
+        );
+    }
+
+    #[test]
+    fn rejects_stale_timestamps() {
+        let stale_past = signed_auth_event(
+            (now() - Duration::seconds(181)).timestamp(),
+            27_235,
+            auth_tags(),
+        );
+        assert_eq!(
+            stale_past
+                .verify_http_auth(DOMAIN, METHOD, URL, now())
+                .unwrap_err(),
+            AuthProofError::StaleTimestamp
+        );
+
+        let stale_future = signed_auth_event(
+            (now() + Duration::seconds(181)).timestamp(),
+            27_235,
+            auth_tags(),
+        );
+        assert_eq!(
+            stale_future
+                .verify_http_auth(DOMAIN, METHOD, URL, now())
+                .unwrap_err(),
+            AuthProofError::StaleTimestamp
+        );
+    }
+
+    #[test]
+    fn validates_domain_method_and_url_tags() {
+        let event = signed_auth_event(now().timestamp(), 27_235, auth_tags());
+
+        assert_eq!(
+            event
+                .verify_http_auth("other.example", METHOD, URL, now())
+                .unwrap_err(),
+            AuthProofError::DomainMismatch
+        );
+        assert_eq!(
+            event
+                .verify_http_auth(DOMAIN, "POST", URL, now())
+                .unwrap_err(),
+            AuthProofError::MethodMismatch
+        );
+        assert_eq!(
+            event
+                .verify_http_auth(DOMAIN, METHOD, "https://other.example/session", now())
+                .unwrap_err(),
+            AuthProofError::UrlMismatch
+        );
+    }
+
+    #[test]
+    fn rejects_event_id_mismatches_and_invalid_signatures() {
+        let event = signed_auth_event(now().timestamp(), 27_235, auth_tags());
+
+        let mut wrong_id = event.clone();
+        wrong_id.id = "f".repeat(64);
+        assert_eq!(
+            wrong_id
+                .verify_http_auth(DOMAIN, METHOD, URL, now())
+                .unwrap_err(),
+            AuthProofError::EventIdMismatch
+        );
+
+        let mut wrong_signature = event;
+        wrong_signature.sig = "00".repeat(64);
+        assert_eq!(
+            wrong_signature
+                .verify_http_auth(DOMAIN, METHOD, URL, now())
+                .unwrap_err(),
+            AuthProofError::InvalidSignature
+        );
+    }
+}
