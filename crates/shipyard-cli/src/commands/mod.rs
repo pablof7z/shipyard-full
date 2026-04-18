@@ -3,6 +3,7 @@ mod auth;
 mod delegates;
 mod devices;
 mod dvm;
+mod media;
 mod proposals;
 mod publish;
 mod queues;
@@ -78,6 +79,10 @@ enum Command {
         #[command(subcommand)]
         command: dvm::DvmCommand,
     },
+    Media {
+        #[command(subcommand)]
+        command: media::MediaCommand,
+    },
     Status,
 }
 
@@ -111,6 +116,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<Value> {
         Command::SendNow(args) => publish::send_now(&client, args).await,
         Command::Posts { command } => publish::run_posts(&client, command).await,
         Command::Dvm { command } => dvm::run(&client, command).await,
+        Command::Media { command } => media::run(command).await,
     }
 }
 

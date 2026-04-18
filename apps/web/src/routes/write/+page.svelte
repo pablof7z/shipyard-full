@@ -140,9 +140,12 @@
     <p class="eyebrow">Compose</p>
     <h1>Write</h1>
   </div>
-  <button class="secondary-action" type="button" onclick={loadWriteContext} disabled={loading}>
-    Refresh
-  </button>
+  <div class="header-actions">
+    <a class="secondary-action" href="/drafts">Drafts</a>
+    <button class="secondary-action" type="button" onclick={loadWriteContext} disabled={loading}>
+      Refresh
+    </button>
+  </div>
 </header>
 
 {#if message}

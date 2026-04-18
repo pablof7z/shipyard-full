@@ -269,6 +269,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "chacha20"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
+dependencies = [
+ "cfg-if",
+ "cipher",
+ "cpufeatures",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1834,12 +1845,15 @@ name = "shipyard-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "chrono",
  "clap",
  "dirs",
+ "hex",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "shipyard-core",
  "tokio",
  "toml",
@@ -1853,8 +1867,11 @@ dependencies = [
  "aes",
  "base64",
  "cbc",
+ "chacha20",
  "chrono",
  "hex",
+ "hkdf",
+ "hmac",
  "secp256k1",
  "serde",
  "serde_json",

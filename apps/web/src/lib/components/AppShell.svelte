@@ -13,6 +13,7 @@
   const navItems = [
     ['Dashboard', '/'],
     ['Write', '/write'],
+    ['Drafts', '/drafts'],
     ['Scheduled', '/scheduled'],
     ['Queues', '/queues'],
     ['Proposals', '/proposals'],
