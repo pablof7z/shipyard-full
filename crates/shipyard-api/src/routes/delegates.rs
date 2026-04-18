@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 use shipyard_core::Pubkey;
 use sqlx::Row;
 
-use super::models::{
-    parse_db_pubkey, require_account_access, require_owner, require_session, ApiState, AppError,
-};
+use super::models::{parse_db_pubkey, require_owner, require_session, ApiState, AppError};
 
 pub(super) fn router() -> Router<ApiState> {
     Router::new()
@@ -71,7 +69,7 @@ async fn invite_delegate(
         .map_err(|err| AppError::bad_request("pubkey_invalid", err.to_string()))?;
     let delegate_pubkey = Pubkey::parse(request.delegate_pubkey)
         .map_err(|err| AppError::bad_request("delegate_pubkey_invalid", err.to_string()))?;
-    require_account_access(&state, &session, &owner_pubkey).await?;
+    require_owner(&session, &owner_pubkey)?;
 
     let mut tx = state.pool.begin().await?;
     sqlx::query(
@@ -124,7 +122,7 @@ async fn revoke_delegate(
         .map_err(|err| AppError::bad_request("pubkey_invalid", err.to_string()))?;
     let delegate_pubkey = Pubkey::parse(delegate_pubkey)
         .map_err(|err| AppError::bad_request("delegate_pubkey_invalid", err.to_string()))?;
-    require_account_access(&state, &session, &owner_pubkey).await?;
+    require_owner(&session, &owner_pubkey)?;
 
     sqlx::query(
         "UPDATE account_delegates
@@ -156,16 +154,42 @@ struct DelegateResponse {
 mod tests {
     const SOURCE: &str = include_str!("delegates.rs");
 
-    #[test]
-    fn mutating_delegate_routes_allow_owner_or_active_delegate_access() {
-        let implementation = SOURCE.split("#[cfg(test)]").next().unwrap();
-        let access_checks = implementation
-            .matches("require_account_access(&state, &session, &owner_pubkey).await?")
-            .count();
+    fn section<'a>(source: &'a str, start: &str, end: &str) -> &'a str {
+        let (_, after_start) = source
+            .split_once(start)
+            .unwrap_or_else(|| panic!("missing section start: {start}"));
+        let (body, _) = after_start
+            .split_once(end)
+            .unwrap_or_else(|| panic!("missing section end: {end}"));
+        body
+    }
 
-        assert_eq!(
-            access_checks, 2,
-            "invite and revoke delegate routes must both use account access checks"
+    #[test]
+    fn mutating_delegate_routes_require_owner_access() {
+        let implementation = SOURCE.split("#[cfg(test)]").next().unwrap();
+        let invite_delegate = section(
+            implementation,
+            "async fn invite_delegate",
+            "async fn revoke_delegate",
+        );
+        let revoke_delegate = section(
+            implementation,
+            "async fn revoke_delegate",
+            "#[derive(Debug, Deserialize)]",
+        );
+
+        assert!(
+            invite_delegate.contains("require_owner(&session, &owner_pubkey)?"),
+            "invite delegate must require the owner session"
+        );
+        assert!(
+            revoke_delegate.contains("require_owner(&session, &owner_pubkey)?"),
+            "revoke delegate must require the owner session"
+        );
+        assert!(
+            !invite_delegate.contains("require_account_access")
+                && !revoke_delegate.contains("require_account_access"),
+            "active delegates must not be able to invite or revoke delegates"
         );
     }
 }

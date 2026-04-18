@@ -5,15 +5,15 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use shipyard_core::ApiErrorBody;
+use shipyard_core::{Actor, ApiErrorBody, PublishState};
 use uuid::Uuid;
 
 use crate::routes::models::{
     require_owner, require_session, ApiState, AppError, AuthenticatedSession,
 };
 use crate::routes::publish_items::{
-    enqueue_publish_job, fetch_publish_item, parse_event_json, row_to_publish_item,
-    PublishItemResponse,
+    assert_publish_transition, enqueue_publish_job, fetch_publish_item, parse_event_json,
+    resolve_scheduled_publish_time, row_to_publish_item, PublishItemResponse,
 };
 
 pub(super) async fn sign_proposal(
@@ -77,16 +77,28 @@ async fn sign_proposal_for_session(
     let item = fetch_publish_item(state, publish_item_id).await?;
     require_owner(session, &item.owner_pubkey)?;
     let signed_event = parse_event_json(&signed_event_json)?;
-    signed_event
-        .validate_signed_for_owner(&item.owner_pubkey, item.publish_time)
-        .map_err(|err| AppError::bad_request("signed_event_invalid", err.to_string()))?;
-
     let event_id = signed_event.id.clone().ok_or_else(|| {
         AppError::bad_request("signed_event_invalid", "Signed event must include id.")
     })?;
-    let publish_time = item.publish_time.unwrap_or_else(|| {
-        DateTime::<Utc>::from_timestamp(signed_event.created_at, 0).unwrap_or_else(Utc::now)
-    });
+    assert_publish_transition(Actor::Owner, &item.state, PublishState::Scheduled)?;
+    let fallback_publish_time =
+        DateTime::<Utc>::from_timestamp(signed_event.created_at, 0).unwrap_or_else(Utc::now);
+    let publish_time = if item.trigger == "QUEUE" {
+        resolve_scheduled_publish_time(
+            state,
+            &item.owner_pubkey,
+            &item.trigger,
+            None,
+            item.queue_id,
+            Some(publish_item_id),
+        )
+        .await?
+    } else {
+        item.publish_time.unwrap_or(fallback_publish_time)
+    };
+    signed_event
+        .validate_signed_for_owner(&item.owner_pubkey, Some(publish_time))
+        .map_err(|err| AppError::bad_request("signed_event_invalid", err.to_string()))?;
 
     let mut tx = state.pool.begin().await?;
     let row = sqlx::query(
@@ -147,4 +159,31 @@ pub(super) struct BatchSignProposalResult {
     proposal_id: Uuid,
     item: Option<PublishItemResponse>,
     error: Option<ApiErrorBody>,
+}
+
+#[cfg(test)]
+mod tests {
+    const SOURCE: &str = include_str!("signing.rs");
+
+    #[test]
+    fn proposal_signing_resolves_queue_publish_time_before_validation() {
+        let implementation = SOURCE.split("#[cfg(test)]").next().unwrap();
+
+        assert!(
+            implementation.contains(
+                "assert_publish_transition(Actor::Owner, &item.state, PublishState::Scheduled)"
+            ),
+            "proposal signing must guard PROPOSED -> SCHEDULED through the state machine"
+        );
+        assert!(
+            implementation.contains("if item.trigger == \"QUEUE\"")
+                && implementation.contains("resolve_scheduled_publish_time"),
+            "QUEUE proposal signing must assign publish_time from shared queue logic"
+        );
+        assert!(
+            implementation.find("resolve_scheduled_publish_time")
+                < implementation.find("validate_signed_for_owner"),
+            "proposal signing must validate the signed event against the final publish_time"
+        );
+    }
 }

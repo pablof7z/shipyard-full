@@ -1,10 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use shipyard_core::{NostrEvent, Pubkey};
+use shipyard_core::{assert_transition, next_queue_slot, Actor, NostrEvent, Pubkey, PublishState};
 use sqlx::{Postgres, Row, Transaction};
 use uuid::Uuid;
 
-use crate::routes::models::{parse_db_pubkey, queue_owner, ApiState, AppError};
+use crate::routes::models::{fetch_queue, parse_db_pubkey, ApiState, AppError};
 
 #[derive(Debug, Serialize)]
 pub(in crate::routes) struct PublishItemResponse {
@@ -100,8 +100,8 @@ pub(in crate::routes) async fn validate_queue_for_owner(
         return Ok(());
     };
 
-    let queue_owner = queue_owner(state, queue_id).await?;
-    if &queue_owner == owner_pubkey {
+    let queue = fetch_queue(state, queue_id).await?;
+    if &queue.owner_pubkey == owner_pubkey {
         Ok(())
     } else {
         Err(AppError::forbidden(
@@ -156,6 +156,96 @@ pub(in crate::routes) fn validate_trigger_inputs(
         }
     }
     Ok(())
+}
+
+pub(in crate::routes) async fn resolve_scheduled_publish_time(
+    state: &ApiState,
+    owner_pubkey: &Pubkey,
+    trigger: &str,
+    requested_publish_time: Option<DateTime<Utc>>,
+    queue_id: Option<Uuid>,
+    exclude_publish_item_id: Option<Uuid>,
+) -> Result<DateTime<Utc>, AppError> {
+    validate_trigger_inputs(trigger, requested_publish_time, queue_id)?;
+
+    if trigger == "QUEUE" {
+        return next_assigned_queue_slot(state, owner_pubkey, queue_id, exclude_publish_item_id)
+            .await;
+    }
+
+    requested_publish_time.ok_or_else(|| {
+        AppError::bad_request(
+            "publish_time_required",
+            "Publish time is required for scheduled publish items.",
+        )
+    })
+}
+
+async fn next_assigned_queue_slot(
+    state: &ApiState,
+    owner_pubkey: &Pubkey,
+    queue_id: Option<Uuid>,
+    exclude_publish_item_id: Option<Uuid>,
+) -> Result<DateTime<Utc>, AppError> {
+    let queue_id = queue_id.ok_or_else(|| {
+        AppError::bad_request(
+            "queue_required",
+            "Queue id is required for queued scheduling.",
+        )
+    })?;
+    let queue = fetch_queue(state, queue_id).await?;
+    if &queue.owner_pubkey != owner_pubkey {
+        return Err(AppError::forbidden(
+            "queue_owner_mismatch",
+            "Queue does not belong to this account.",
+        ));
+    }
+
+    let latest_queue_slot: Option<DateTime<Utc>> = sqlx::query_scalar(
+        "SELECT max(publish_time)
+         FROM publish_items
+         WHERE queue_id = $1
+           AND ($2::uuid IS NULL OR id <> $2)
+           AND publish_time IS NOT NULL
+           AND state NOT IN ('REJECTED', 'CANCELLED', 'FAILED')",
+    )
+    .bind(queue_id)
+    .bind(exclude_publish_item_id)
+    .fetch_one(&state.pool)
+    .await?;
+
+    next_queue_slot(&queue, Utc::now(), latest_queue_slot)
+        .map_err(|err| AppError::bad_request("queue_next_slot_unavailable", err.to_string()))
+}
+
+pub(in crate::routes) fn parse_publish_state(value: &str) -> Result<PublishState, AppError> {
+    serde_json::from_value(serde_json::Value::String(value.to_string())).map_err(|_| {
+        AppError::internal("publish_state_invalid", "Stored publish state is invalid.")
+    })
+}
+
+pub(in crate::routes) fn publish_state_literal(state: PublishState) -> &'static str {
+    match state {
+        PublishState::Proposed => "PROPOSED",
+        PublishState::Rejected => "REJECTED",
+        PublishState::NeedsSignature => "NEEDS_SIGNATURE",
+        PublishState::Signed => "SIGNED",
+        PublishState::Scheduled => "SCHEDULED",
+        PublishState::Publishing => "PUBLISHING",
+        PublishState::Published => "PUBLISHED",
+        PublishState::Failed => "FAILED",
+        PublishState::Cancelled => "CANCELLED",
+    }
+}
+
+pub(in crate::routes) fn assert_publish_transition(
+    actor: Actor,
+    from: &str,
+    to: PublishState,
+) -> Result<(), AppError> {
+    let from = parse_publish_state(from)?;
+    assert_transition(actor, from, to)
+        .map_err(|err| AppError::bad_request("publish_state_transition_invalid", err.to_string()))
 }
 
 pub(in crate::routes) async fn enqueue_publish_job(

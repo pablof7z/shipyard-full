@@ -42,6 +42,43 @@ fn terminal_publish_state_changes_are_audited() {
 }
 
 #[test]
+fn publish_state_changes_use_core_state_machine_guard() {
+    let source = implementation();
+
+    assert!(
+        source.contains("assert_transition(Actor::Worker, from, to)"),
+        "worker publish state changes must go through the core state-machine guard"
+    );
+    assert!(
+        source.contains("transition_publish_item_to_publishing")
+            && source.contains("PublishState::Publishing")
+            && source.contains("PublishState::Published")
+            && source.contains("PublishState::Failed"),
+        "worker must guard publishing, published, and failed publish transitions"
+    );
+}
+
+#[test]
+fn publish_failures_enqueue_notification_jobs() {
+    let source = implementation();
+    let fail_publish_item = section(
+        &source,
+        "pub(crate) async fn fail_publish_item",
+        "#[derive(Debug, Deserialize)]",
+    );
+
+    assert!(
+        fail_publish_item.contains("enqueue_publish_failure_notification"),
+        "terminal publish failures must enqueue a durable owner notification job"
+    );
+    assert!(
+        fail_publish_item.contains("'send_notification'")
+            && fail_publish_item.contains("\"type\": \"publish_failed\""),
+        "publish failure notification jobs must use the existing send_notification job kind"
+    );
+}
+
+#[test]
 fn relay_publish_failures_use_job_retry_path() {
     let source = implementation();
     let process_publish_event = section(

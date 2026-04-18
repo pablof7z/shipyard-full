@@ -8,10 +8,12 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
+use shipyard_core::{Actor, PublishState};
 use uuid::Uuid;
 
 pub(super) use model::{
-    enqueue_publish_job, fetch_publish_item, parse_event_json, row_to_publish_item,
+    assert_publish_transition, enqueue_publish_job, fetch_publish_item, parse_event_json,
+    publish_state_literal, resolve_scheduled_publish_time, row_to_publish_item,
     validate_queue_for_owner, validate_trigger_inputs, PublishItemResponse,
     PUBLISH_ITEM_SELECT_CREATOR_STATE, PUBLISH_ITEM_SELECT_OWNER_STATE,
 };
@@ -82,19 +84,15 @@ async fn cancel_publish_item(
     let session = require_session(&state, &headers).await?;
     let item = fetch_publish_item(&state, publish_item_id).await?;
     require_owner(&session, &item.owner_pubkey)?;
-    if matches!(item.state.as_str(), "PUBLISHED" | "PUBLISHING") {
-        return Err(AppError::bad_request(
-            "publish_item_not_cancellable",
-            "Publishing or published items cannot be cancelled.",
-        ));
-    }
+    assert_publish_transition(Actor::Owner, &item.state, PublishState::Cancelled)?;
 
     sqlx::query(
         "UPDATE publish_items
          SET state = 'CANCELLED', updated_at = now()
-         WHERE id = $1 AND state NOT IN ('PUBLISHED', 'PUBLISHING')",
+         WHERE id = $1 AND state = $2::publish_state",
     )
     .bind(publish_item_id)
+    .bind(&item.state)
     .execute(&state.pool)
     .await?;
 
@@ -117,14 +115,28 @@ async fn retry_publish_item(
     }
 
     let next_state = if item.signed_event_json.is_some() {
-        "SCHEDULED"
+        PublishState::Scheduled
     } else {
-        "NEEDS_SIGNATURE"
+        PublishState::NeedsSignature
     };
+    assert_publish_transition(Actor::Owner, &item.state, next_state)?;
+    let retry_publish_time = if next_state == PublishState::Scheduled {
+        Some(item.publish_time.unwrap_or_else(|| {
+            item.signed_event_json
+                .as_ref()
+                .and_then(|event_json| parse_event_json(event_json).ok())
+                .and_then(|event| DateTime::<Utc>::from_timestamp(event.created_at, 0))
+                .unwrap_or_else(Utc::now)
+        }))
+    } else {
+        None
+    };
+
     let mut tx = state.pool.begin().await?;
     let row = sqlx::query(
         "UPDATE publish_items
          SET state = $2::publish_state,
+             publish_time = COALESCE($3, publish_time),
              failure_code = NULL,
              failure_message = NULL,
              failed_at = NULL,
@@ -136,12 +148,12 @@ async fn retry_publish_item(
                    failure_code, failure_message, created_at, updated_at",
     )
     .bind(publish_item_id)
-    .bind(next_state)
+    .bind(publish_state_literal(next_state))
+    .bind(retry_publish_time)
     .fetch_one(&mut *tx)
     .await?;
 
-    if next_state == "SCHEDULED" {
-        let publish_time = item.publish_time.unwrap_or_else(Utc::now);
+    if let Some(publish_time) = retry_publish_time {
         enqueue_publish_job(&mut tx, publish_item_id, publish_time).await?;
     }
     tx.commit().await?;
@@ -159,16 +171,21 @@ async fn create_signed_publish_item(
     let owner_pubkey = signed_event.pubkey.clone();
     require_owner(session, &owner_pubkey)?;
 
-    let publish_time = if due_now {
-        DateTime::<Utc>::from_timestamp(signed_event.created_at, 0).unwrap_or_else(Utc::now)
+    let requested_publish_time = if due_now {
+        Some(DateTime::<Utc>::from_timestamp(signed_event.created_at, 0).unwrap_or_else(Utc::now))
     } else {
-        request.publish_time.ok_or_else(|| {
-            AppError::bad_request("publish_time_required", "Publish time is required.")
-        })?
+        request.publish_time
     };
 
-    validate_trigger_inputs(&request.trigger, Some(publish_time), request.queue_id)?;
-    validate_queue_for_owner(state, request.queue_id, &owner_pubkey).await?;
+    let publish_time = resolve_scheduled_publish_time(
+        state,
+        &owner_pubkey,
+        &request.trigger,
+        requested_publish_time,
+        request.queue_id,
+        None,
+    )
+    .await?;
     signed_event
         .validate_signed_for_owner(&owner_pubkey, Some(publish_time))
         .map_err(|err| AppError::bad_request("signed_event_invalid", err.to_string()))?;
@@ -211,4 +228,65 @@ struct ScheduleSignedEventRequest {
     trigger: String,
     publish_time: Option<DateTime<Utc>>,
     queue_id: Option<Uuid>,
+}
+
+#[cfg(test)]
+mod tests {
+    const SOURCE: &str = include_str!("publish_items.rs");
+
+    fn section<'a>(source: &'a str, start: &str, end: &str) -> &'a str {
+        let (_, after_start) = source
+            .split_once(start)
+            .unwrap_or_else(|| panic!("missing section start: {start}"));
+        let (body, _) = after_start
+            .split_once(end)
+            .unwrap_or_else(|| panic!("missing section end: {end}"));
+        body
+    }
+
+    #[test]
+    fn direct_queue_scheduling_resolves_publish_time_before_validation() {
+        let implementation = SOURCE.split("#[cfg(test)]").next().unwrap();
+        let create_signed = section(
+            implementation,
+            "async fn create_signed_publish_item",
+            "#[derive(Debug, Deserialize)]",
+        );
+
+        assert!(
+            create_signed.contains("resolve_scheduled_publish_time"),
+            "direct signed scheduling must assign QUEUE publish_time via shared queue logic"
+        );
+        assert!(
+            create_signed.find("resolve_scheduled_publish_time")
+                < create_signed.find("validate_signed_for_owner"),
+            "signed event validation must use the resolved publish_time"
+        );
+    }
+
+    #[test]
+    fn cancel_and_retry_use_state_machine_guard() {
+        let implementation = SOURCE.split("#[cfg(test)]").next().unwrap();
+        let cancel = section(
+            implementation,
+            "async fn cancel_publish_item",
+            "async fn retry_publish_item",
+        );
+        let retry = section(
+            implementation,
+            "async fn retry_publish_item",
+            "async fn create_signed_publish_item",
+        );
+
+        assert!(
+            cancel.contains(
+                "assert_publish_transition(Actor::Owner, &item.state, PublishState::Cancelled)"
+            ),
+            "cancel must go through the Rust state-machine guard"
+        );
+        assert!(
+            retry.contains("assert_publish_transition(Actor::Owner, &item.state, next_state)"),
+            "retry must guard FAILED -> SCHEDULED/NEEDS_SIGNATURE"
+        );
+    }
 }

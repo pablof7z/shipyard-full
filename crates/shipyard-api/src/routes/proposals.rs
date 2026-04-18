@@ -9,7 +9,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use shipyard_core::Pubkey;
+use shipyard_core::{Actor, Pubkey, PublishState};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -18,10 +18,12 @@ use super::models::{
     AppError,
 };
 use super::publish_items::{
-    fetch_publish_item, parse_event_json, row_to_publish_item, validate_queue_for_owner,
-    validate_trigger_inputs, PublishItemResponse,
+    assert_publish_transition, fetch_publish_item, parse_event_json, row_to_publish_item,
+    validate_queue_for_owner, validate_trigger_inputs, PublishItemResponse,
 };
-use helpers::{insert_revision, require_proposal_mutation_access};
+use helpers::{
+    enqueue_owner_pending_proposal_notification, insert_revision, require_proposal_mutation_access,
+};
 
 pub(super) fn router() -> Router<ApiState> {
     Router::new()
@@ -121,6 +123,15 @@ async fn create_proposal(
         Some("created"),
     )
     .await?;
+    if session.user_pubkey != owner_pubkey {
+        enqueue_owner_pending_proposal_notification(
+            &mut tx,
+            publish_item_id,
+            &owner_pubkey,
+            &session.user_pubkey,
+        )
+        .await?;
+    }
     tx.commit().await?;
 
     Ok((StatusCode::CREATED, Json(row_to_publish_item(row)?)))
@@ -202,13 +213,20 @@ async fn cancel_proposal(
     let session = require_session(&state, &headers).await?;
     let item = fetch_publish_item(&state, publish_item_id).await?;
     require_proposal_mutation_access(&state, &session, &item, false).await?;
+    let actor = if session.user_pubkey == item.owner_pubkey {
+        Actor::Owner
+    } else {
+        Actor::DelegateCreator
+    };
+    assert_publish_transition(actor, &item.state, PublishState::Cancelled)?;
 
     sqlx::query(
         "UPDATE publish_items
          SET state = 'CANCELLED', updated_at = now()
-         WHERE id = $1 AND state = 'PROPOSED'",
+         WHERE id = $1 AND state = $2::publish_state",
     )
     .bind(publish_item_id)
+    .bind(&item.state)
     .execute(&state.pool)
     .await?;
 
@@ -224,13 +242,14 @@ async fn reject_proposal(
     let session = require_session(&state, &headers).await?;
     let item = fetch_publish_item(&state, publish_item_id).await?;
     require_owner(&session, &item.owner_pubkey)?;
+    assert_publish_transition(Actor::Owner, &item.state, PublishState::Rejected)?;
 
     let row = sqlx::query(
         "UPDATE publish_items
          SET state = 'REJECTED',
              failure_message = $2,
              updated_at = now()
-         WHERE id = $1 AND state = 'PROPOSED'
+         WHERE id = $1 AND state = $3::publish_state
          RETURNING id, owner_pubkey, created_by_pubkey, state::text AS state,
                    trigger::text AS trigger, unsigned_event_json, signed_event_json,
                    event_id, publish_time, queue_id, published_at, published_to,
@@ -238,6 +257,7 @@ async fn reject_proposal(
     )
     .bind(publish_item_id)
     .bind(request.reason)
+    .bind(&item.state)
     .fetch_optional(&state.pool)
     .await?;
 
