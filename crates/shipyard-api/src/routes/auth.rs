@@ -8,7 +8,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use shipyard_core::{AuthProof, Pubkey};
 
-use super::models::{require_session, ApiState, AppError};
+use super::models::{extract_client_ip, require_session, ApiState, AppError};
 
 pub(super) fn router() -> Router<ApiState> {
     Router::new()
@@ -19,8 +19,35 @@ pub(super) fn router() -> Router<ApiState> {
 
 async fn auth_login(
     State(state): State<ApiState>,
+    headers: HeaderMap,
     Json(request): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, AppError> {
+    // --- Rate limiting (per IP and per pubkey) ----------------------------
+    let client_ip = extract_client_ip(&headers).unwrap_or_else(|| "unknown".to_string());
+
+    if state.login_limiters.per_ip.check_key(&client_ip).is_err() {
+        return Err(AppError::too_many_requests(
+            "rate_limit_exceeded",
+            "Too many login attempts from this IP. Please try again later.",
+        ));
+    }
+
+    // Rate-limit by the pubkey in the event before signature verification,
+    // so attackers cannot bypass per-pubkey limiting with malformed events.
+    let event_pubkey = request.event.pubkey.clone();
+    if state
+        .login_limiters
+        .per_pubkey
+        .check_key(&event_pubkey)
+        .is_err()
+    {
+        return Err(AppError::too_many_requests(
+            "rate_limit_exceeded",
+            "Too many login attempts for this key. Please try again later.",
+        ));
+    }
+
+    // --- Auth proof verification -------------------------------------------
     let proof = AuthProof {
         event: request.event,
         expected_domain: state.auth_domain.clone(),
@@ -31,6 +58,7 @@ async fn auth_login(
         .verify(Utc::now())
         .map_err(|err| AppError::bad_request("auth_proof_invalid", err.to_string()))?;
 
+    // --- Persist session ---------------------------------------------------
     let mut tx = state.pool.begin().await?;
     sqlx::query(
         "INSERT INTO users (pubkey, last_seen_at)
@@ -50,13 +78,22 @@ async fn auth_login(
     .await?;
 
     let expires_at = Utc::now() + Duration::days(30);
+
+    // Store the client IP at session creation (created_ip column already exists).
+    let ip_for_db = if client_ip == "unknown" {
+        None
+    } else {
+        Some(client_ip)
+    };
+
     let session_id: uuid::Uuid = sqlx::query_scalar(
-        "INSERT INTO sessions (user_pubkey, expires_at)
-         VALUES ($1, $2)
+        "INSERT INTO sessions (user_pubkey, expires_at, created_ip)
+         VALUES ($1, $2, $3::INET)
          RETURNING id",
     )
     .bind(user_pubkey.as_str())
     .bind(expires_at)
+    .bind(ip_for_db.as_deref())
     .fetch_one(&mut *tx)
     .await?;
     tx.commit().await?;

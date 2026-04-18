@@ -58,7 +58,10 @@ services:
     environment:
       DATABASE_URL: postgres://shipyard:shipyard@postgres:5432/shipyard
       SHIPYARD_DVM_RELAYS: ${SHIPYARD_DVM_RELAYS:-wss://relay.damus.io,wss://relay.primal.net}
-      SHIPYARD_DVM_SECRET_KEY: ${SHIPYARD_DVM_SECRET_KEY:-1111111111111111111111111111111111111111111111111111111111111111}
+      # REQUIRED: set SHIPYARD_DVM_SECRET_KEY to a 64-char random hex string (32 bytes).
+      # Generate with: openssl rand -hex 32
+      # Never commit this value; inject it via environment or a secrets manager.
+      SHIPYARD_DVM_SECRET_KEY: ${SHIPYARD_DVM_SECRET_KEY}
       SHIPYARD_DVM_TICK_SECONDS: ${SHIPYARD_DVM_TICK_SECONDS:-5}
       RUST_LOG: shipyard_dvm=info
     depends_on:
