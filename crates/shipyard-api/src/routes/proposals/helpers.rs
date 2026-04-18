@@ -54,3 +54,25 @@ pub(super) async fn insert_revision(
 
     Ok(())
 }
+
+pub(super) async fn enqueue_owner_pending_proposal_notification(
+    tx: &mut Transaction<'_, Postgres>,
+    publish_item_id: Uuid,
+    owner_pubkey: &Pubkey,
+    created_by_pubkey: &Pubkey,
+) -> Result<(), AppError> {
+    sqlx::query(
+        "INSERT INTO jobs (kind, payload)
+         VALUES ('send_notification', $1)",
+    )
+    .bind(serde_json::json!({
+        "type": "owner_pending_proposal",
+        "publish_item_id": publish_item_id,
+        "owner_pubkey": owner_pubkey.as_str(),
+        "created_by_pubkey": created_by_pubkey.as_str()
+    }))
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}

@@ -1,7 +1,7 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use shipyard_core::NostrEvent;
+use shipyard_core::{assert_transition, Actor, NostrEvent, PublishState};
 use sqlx::{PgPool, Row};
 use std::fmt;
 use uuid::Uuid;
@@ -13,7 +13,8 @@ pub(crate) async fn process_publish_event(pool: &PgPool, job: &Job) -> anyhow::R
         .context("publish_event payload must include publish_item_id")?;
 
     let row = sqlx::query(
-        "SELECT p.id, p.owner_pubkey, p.signed_event_json, p.publish_time, r.relay_urls
+        "SELECT p.id, p.owner_pubkey, p.state::text AS state,
+                p.signed_event_json, p.publish_time, r.relay_urls
          FROM publish_items p
          LEFT JOIN relay_settings r ON r.owner_pubkey = p.owner_pubkey
          WHERE p.id = $1 AND p.state IN ('SCHEDULED', 'PUBLISHING', 'FAILED')",
@@ -30,7 +31,7 @@ pub(crate) async fn process_publish_event(pool: &PgPool, job: &Job) -> anyhow::R
     let signed_event_json: serde_json::Value = row.try_get("signed_event_json")?;
     let signed_event: NostrEvent =
         serde_json::from_value(signed_event_json).context("stored signed event is invalid")?;
-    let owner_pubkey: String = row.try_get("owner_pubkey")?;
+    let current_state: String = row.try_get("state")?;
     let publish_time: DateTime<Utc> = row.try_get("publish_time")?;
     let relay_urls: Vec<String> = row
         .try_get::<Option<Vec<String>>, _>("relay_urls")?
@@ -41,19 +42,19 @@ pub(crate) async fn process_publish_event(pool: &PgPool, job: &Job) -> anyhow::R
         return Ok(());
     }
 
-    if relay_urls.is_empty() {
-        return Err(PublishJobFailure::new(
-            payload.publish_item_id,
-            "no_relays_configured",
-            "No relays set up. Add at least one in Settings before publishing.",
-        )
-        .into());
+    if !transition_publish_item_to_publishing(pool, payload.publish_item_id, &current_state).await?
+    {
+        return Ok(());
     }
 
-    sqlx::query("UPDATE publish_items SET state = 'PUBLISHING', updated_at = now() WHERE id = $1")
-        .bind(payload.publish_item_id)
-        .execute(pool)
-        .await?;
+    if relay_urls.is_empty() {
+        return Err(PublishJobFailure {
+            publish_item_id: payload.publish_item_id,
+            failure_code: "no_relays_configured",
+            failure_message: "No relays set up. Add at least one in Settings before publishing.",
+        }
+        .into());
+    }
 
     let attempt = job.attempts.max(1);
     let mut accepted_relays = Vec::new();
@@ -80,21 +81,14 @@ pub(crate) async fn process_publish_event(pool: &PgPool, job: &Job) -> anyhow::R
     }
 
     if accepted_relays.is_empty() {
-        return Err(PublishJobFailure::new(
-            payload.publish_item_id,
-            "relay_publish_failed",
-            "None of your relays accepted this post. Check relay settings.",
-        )
+        return Err(PublishJobFailure {
+            publish_item_id: payload.publish_item_id,
+            failure_code: "relay_publish_failed",
+            failure_message: "None of your relays accepted this post. Check relay settings.",
+        }
         .into());
-    } else {
-        publish_item_succeeded(
-            pool,
-            payload.publish_item_id,
-            &owner_pubkey,
-            &accepted_relays,
-        )
-        .await?;
     }
+    publish_item_succeeded(pool, payload.publish_item_id, &accepted_relays).await?;
 
     Ok(())
 }
@@ -104,20 +98,6 @@ pub(crate) struct PublishJobFailure {
     pub(crate) publish_item_id: Uuid,
     pub(crate) failure_code: &'static str,
     pub(crate) failure_message: &'static str,
-}
-
-impl PublishJobFailure {
-    fn new(
-        publish_item_id: Uuid,
-        failure_code: &'static str,
-        failure_message: &'static str,
-    ) -> Self {
-        Self {
-            publish_item_id,
-            failure_code,
-            failure_message,
-        }
-    }
 }
 
 impl fmt::Display for PublishJobFailure {
@@ -131,11 +111,11 @@ impl std::error::Error for PublishJobFailure {}
 async fn publish_item_succeeded(
     pool: &PgPool,
     publish_item_id: Uuid,
-    owner_pubkey: &str,
     accepted_relays: &[String],
 ) -> anyhow::Result<()> {
+    assert_worker_transition("PUBLISHING", PublishState::Published)?;
     let mut tx = pool.begin().await?;
-    sqlx::query(
+    let row = sqlx::query(
         "UPDATE publish_items
          SET state = 'PUBLISHED',
              published_at = now(),
@@ -144,16 +124,52 @@ async fn publish_item_succeeded(
              failure_message = NULL,
              failed_at = NULL,
              updated_at = now()
-         WHERE id = $1",
+         WHERE id = $1 AND state = 'PUBLISHING'
+         RETURNING owner_pubkey",
     )
     .bind(publish_item_id)
     .bind(accepted_relays)
-    .execute(&mut *tx)
+    .fetch_optional(&mut *tx)
     .await?;
-    record_publish_state_change_audit(&mut *tx, owner_pubkey, publish_item_id, "PUBLISHED").await?;
+
+    if let Some(row) = row {
+        let owner_pubkey: String = row.try_get("owner_pubkey")?;
+        record_publish_state_change_audit(&mut *tx, &owner_pubkey, publish_item_id, "PUBLISHED")
+            .await?;
+    }
     tx.commit().await?;
 
     Ok(())
+}
+
+async fn transition_publish_item_to_publishing(
+    pool: &PgPool,
+    publish_item_id: Uuid,
+    current_state: &str,
+) -> anyhow::Result<bool> {
+    if current_state == "PUBLISHING" {
+        return Ok(true);
+    }
+
+    assert_worker_transition(current_state, PublishState::Publishing)?;
+    let result = sqlx::query(
+        "UPDATE publish_items
+         SET state = 'PUBLISHING', updated_at = now()
+         WHERE id = $1 AND state = $2::publish_state",
+    )
+    .bind(publish_item_id)
+    .bind(current_state)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() == 1)
+}
+
+fn assert_worker_transition(from: &str, to: PublishState) -> anyhow::Result<()> {
+    let from: PublishState = serde_json::from_value(serde_json::Value::String(from.to_string()))
+        .with_context(|| format!("stored publish state is invalid: {from}"))?;
+    assert_transition(Actor::Worker, from, to)
+        .map_err(|err| anyhow::anyhow!("invalid worker publish state transition: {err}"))
 }
 
 async fn record_publish_state_change_audit<'e, E>(
@@ -189,12 +205,8 @@ async fn record_publish_attempt(
     relay_url: &str,
     status_or_error: &str,
 ) -> anyhow::Result<()> {
-    let status = if status_or_error == "accepted" {
-        "accepted"
-    } else {
-        "error"
-    };
-    let error = (status == "error").then_some(status_or_error);
+    let error = (status_or_error != "accepted").then_some(status_or_error);
+    let status = error.map_or("accepted", |_| "error");
 
     sqlx::query(
         "INSERT INTO publish_attempts (publish_item_id, job_id, attempt, relay_url, status, error)
@@ -218,6 +230,7 @@ pub(crate) async fn fail_publish_item(
     failure_code: &str,
     failure_message: &str,
 ) -> anyhow::Result<()> {
+    assert_worker_transition("PUBLISHING", PublishState::Failed)?;
     let mut tx = pool.begin().await?;
     let row = sqlx::query(
         "UPDATE publish_items
@@ -226,7 +239,7 @@ pub(crate) async fn fail_publish_item(
              failure_message = $3,
              failed_at = now(),
              updated_at = now()
-         WHERE id = $1
+         WHERE id = $1 AND state = 'PUBLISHING'
          RETURNING owner_pubkey",
     )
     .bind(publish_item_id)
@@ -239,9 +252,41 @@ pub(crate) async fn fail_publish_item(
         let owner_pubkey: String = row.try_get("owner_pubkey")?;
         record_publish_state_change_audit(&mut *tx, &owner_pubkey, publish_item_id, "FAILED")
             .await?;
+        enqueue_publish_failure_notification(
+            &mut tx,
+            publish_item_id,
+            &owner_pubkey,
+            failure_code,
+            failure_message,
+        )
+        .await?;
     }
 
     tx.commit().await?;
+
+    Ok(())
+}
+
+async fn enqueue_publish_failure_notification(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    publish_item_id: Uuid,
+    owner_pubkey: &str,
+    failure_code: &str,
+    failure_message: &str,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        "INSERT INTO jobs (kind, payload)
+         VALUES ('send_notification', $1)",
+    )
+    .bind(serde_json::json!({
+        "type": "publish_failed",
+        "publish_item_id": publish_item_id,
+        "owner_pubkey": owner_pubkey,
+        "failure_code": failure_code,
+        "failure_message": failure_message
+    }))
+    .execute(&mut **tx)
+    .await?;
 
     Ok(())
 }

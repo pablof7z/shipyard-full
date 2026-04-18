@@ -28,6 +28,7 @@ pub fn can_transition(actor: Actor, from: PublishState, to: PublishState) -> boo
             (Proposed, Rejected)
                 | (Proposed, NeedsSignature)
                 | (Proposed, Signed)
+                | (Proposed, Scheduled)
                 | (Proposed, Cancelled)
                 | (NeedsSignature, Signed)
                 | (NeedsSignature, Cancelled)
@@ -76,6 +77,7 @@ mod tests {
     fn owner_can_reject_or_sign_proposals() {
         assert!(can_transition(Actor::Owner, Proposed, Rejected));
         assert!(can_transition(Actor::Owner, Proposed, Signed));
+        assert!(can_transition(Actor::Owner, Proposed, Scheduled));
     }
 
     #[test]
