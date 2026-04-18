@@ -11,3 +11,6 @@ dist
 *.db
 coverage
 .playwright-mcp
+
+# Git worktrees
+.worktrees/
