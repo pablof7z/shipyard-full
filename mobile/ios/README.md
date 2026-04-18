@@ -1,18 +1,39 @@
 # Shipyard iOS
 
-Native iOS client target.
+Native iOS client target. This directory is intentionally still a scaffold:
+there is no complete SwiftUI app, Xcode project, or generated FFI binding yet.
+It is not a web wrapper.
 
-Implementation standard:
+Current foundation:
+
+- Shared Rust crate exists at `crates/shipyard-mobile-core`.
+- The crate exports serializable API payloads for device tokens, queue slot
+  previews, signed scheduling, and proposals.
+- The crate includes NIP-37 draft metadata/delete marker helpers.
+- The crate includes Blossom server selection with the required
+  `https://blossom.primal.net` fallback only when no valid server is present.
+- The crate exposes FFI-safe version and capability functions for future Swift
+  bindings.
+
+Next commands:
+
+```sh
+cd /tmp/shipyard-mobile-core-foundation
+cargo test -p shipyard-mobile-core
+cargo build -p shipyard-mobile-core
+```
+
+Native implementation standard:
 
 - SwiftUI frontend.
-- Shared Rust core from `crates/shipyard-mobile-core` via generated FFI.
+- Generated bindings around `crates/shipyard-mobile-core`.
 - Platform secure storage for local signing secrets.
 - Explicit owner signing UX.
 - NIP-37 drafts with offline editing cache.
 - Blossom-only media upload through the active signer's server list.
 - Delegated proposal mode clearly labeled in composer and review flows.
 
-Completion criteria:
+Native completion criteria:
 
 - Login.
 - Save/delete NIP-37 draft.

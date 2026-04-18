@@ -1903,7 +1903,12 @@ dependencies = [
 name = "shipyard-mobile-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
  "shipyard-core",
+ "thiserror 1.0.69",
+ "uuid",
 ]
 
 [[package]]

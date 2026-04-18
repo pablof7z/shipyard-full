@@ -10,4 +10,9 @@ rust-version.workspace = true
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 shipyard-core = { path = "../shipyard-core" }
+thiserror.workspace = true
+uuid.workspace = true
