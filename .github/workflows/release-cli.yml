@@ -25,10 +25,57 @@ jobs:
       - run: cargo build --release --bin shipyard --target ${{ matrix.target }}
       - name: Package artifact
         shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
+          set -euo pipefail
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/shipyard* dist/ || true
-          shasum -a 256 dist/* > dist/SHA256SUMS
+          binary_name="shipyard"
+          if [[ "$TARGET" == *"windows"* ]]; then
+            binary_name="shipyard.exe"
+          fi
+
+          binary_path="target/${TARGET}/release/${binary_name}"
+          cp "$binary_path" "dist/${binary_name}"
+
+          built_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          if command -v shasum >/dev/null 2>&1; then
+            checksum_line="$(shasum -a 256 "dist/${binary_name}")"
+          else
+            checksum_line="$(sha256sum "dist/${binary_name}")"
+          fi
+          sha256="$(printf '%s' "$checksum_line" | awk '{print $1}')"
+
+          printf '%s\n' "$checksum_line" > dist/SHA256SUMS
+          cat > dist/checksums.json <<JSON
+          {
+            "algorithm": "sha256",
+            "files": [
+              {
+                "name": "${binary_name}",
+                "sha256": "${sha256}"
+              }
+            ]
+          }
+          JSON
+          cat > dist/manifest.json <<JSON
+          {
+            "name": "shipyard-cli",
+            "version": "${REF_NAME#shipyard-cli-v}",
+            "tag": "${REF_NAME}",
+            "target": "${TARGET}",
+            "binary": "${binary_name}",
+            "sha256": "${sha256}",
+            "commit": "${SHA}",
+            "run_id": "${RUN_ID}",
+            "run_attempt": "${RUN_ATTEMPT}",
+            "built_at": "${built_at}"
+          }
+          JSON
       - uses: actions/upload-artifact@v4
         with:
           name: shipyard-${{ matrix.target }}
