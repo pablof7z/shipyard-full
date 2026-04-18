@@ -23,6 +23,7 @@
   ];
 
   let session = $state<ShipyardSession>({ token: '', ownerPubkey: '' });
+  const isComposer = $derived(page.url.pathname === '/write');
 
   function refreshSession() {
     session = readShipyardSession();
@@ -46,27 +47,29 @@
   });
 </script>
 
-<div class="app-shell">
-  <aside class="sidebar">
-    <a class="brand" href="/" aria-label="Shipyard dashboard">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span>Shipyard</span>
-    </a>
+<div class="app-shell" class:composer-mode={isComposer}>
+  {#if !isComposer}
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Shipyard dashboard">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Shipyard</span>
+      </a>
 
-    <nav class="nav" aria-label="Main navigation">
-      {#each navItems as [label, href]}
-        <a class="nav-item" class:active={isActive(href)} {href}>{label}</a>
-      {/each}
-    </nav>
+      <nav class="nav" aria-label="Main navigation">
+        {#each navItems as [label, href]}
+          <a class="nav-item" class:active={isActive(href)} {href}>{label}</a>
+        {/each}
+      </nav>
 
-    <div class="account-pill" aria-label="Active account">
-      <span class="avatar">{session.ownerPubkey ? session.ownerPubkey.slice(0, 1).toUpperCase() : '-'}</span>
-      <span>
-        <strong>{compactPubkey(session.ownerPubkey)}</strong>
-        <small>{session.token ? 'Session configured' : 'No session'}</small>
-      </span>
-    </div>
-  </aside>
+      <div class="account-pill" aria-label="Active account">
+        <span class="avatar">{session.ownerPubkey ? session.ownerPubkey.slice(0, 1).toUpperCase() : '-'}</span>
+        <span>
+          <strong>{compactPubkey(session.ownerPubkey)}</strong>
+          <small>{session.token ? 'Session configured' : 'No session'}</small>
+        </span>
+      </div>
+    </aside>
+  {/if}
 
   <main class="main">
     {@render children()}

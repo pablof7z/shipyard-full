@@ -1,0 +1,298 @@
+.app-shell.composer-mode {
+  grid-template-columns: minmax(0, 1fr);
+}
+.composer-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  background: var(--bg-primary);
+}
+.composer-topbar,
+.composer-bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-color: var(--border-subtle);
+  flex-wrap: wrap;
+}
+.composer-topbar {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.composer-bottombar {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.composer-topbar-left,
+.composer-topbar-right,
+.composer-tools,
+.composer-publish-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-topbar-right {
+  margin-left: auto;
+}
+
+.composer-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.composer-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.composer-icon-btn svg,
+.composer-tools svg,
+.schedule-pill svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.composer-account-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 5px 11px 5px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 20px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.composer-account-pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.thread-counter,
+.char-count,
+.composer-topbar-right > span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.composer-notice {
+  max-width: 640px;
+  width: calc(100% - 32px);
+  margin: 14px auto 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.composer-thread-body {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  overflow-y: auto;
+  padding: 34px 0 28px;
+}
+
+.thread-note {
+  display: flex;
+  min-width: 0;
+}
+
+.thread-gutter {
+  width: 48px;
+  flex: 0 0 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 18px;
+}
+
+.thread-number {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.thread-line {
+  width: 2px;
+  flex: 1;
+  min-height: 76px;
+  margin-top: 6px;
+  border-radius: 1px;
+  background: var(--border-default);
+}
+
+.thread-note:last-of-type .thread-line {
+  background: transparent;
+}
+
+.thread-note-content {
+  flex: 1;
+  min-width: 0;
+  padding: 0 16px;
+}
+
+.thread-mode .thread-note-content {
+  padding: 14px 44px 14px 8px;
+}
+
+.thread-textarea {
+  width: 100%;
+  min-height: 46vh;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  resize: none;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.thread-mode .thread-textarea {
+  min-height: 100px;
+}
+
+.thread-textarea:focus {
+  border-color: transparent;
+}
+
+.thread-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.thread-divider {
+  margin: 0 48px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.thread-add-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.thread-mode .thread-add-note {
+  margin-left: 56px;
+}
+
+.thread-add-note:hover {
+  color: var(--accent);
+}
+
+.thread-add-icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--border-default);
+  border-radius: 50%;
+}
+
+.note-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.note-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  padding: 0;
+}
+
+.note-actions button:hover {
+  color: var(--text-primary);
+}
+
+.composer-tools button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.composer-tools button:hover,
+.composer-tools button.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.schedule-pill,
+.schedule-input {
+  min-height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+.schedule-pill select,
+.schedule-input {
+  padding: 6px 10px;
+}
+
+.schedule-pill select {
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+}
+
+.composer-drawer {
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  padding: 16px;
+}
+
+.composer-drawer-panel,
+.composer-drawer .card-form {
+  max-width: 760px;
+  margin: 0 auto;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}

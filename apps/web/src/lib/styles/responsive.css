@@ -38,6 +38,44 @@
     align-items: stretch;
     flex-direction: column;
   }
+
+  .composer-topbar,
+  .composer-bottombar {
+    align-items: stretch;
+  }
+
+  .composer-topbar-right,
+  .composer-publish-group {
+    width: 100%;
+  }
+
+  .composer-topbar-right {
+    justify-content: space-between;
+  }
+
+  .composer-publish-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .schedule-pill,
+  .schedule-input {
+    min-width: 0;
+  }
+
+  .schedule-input {
+    grid-column: 1 / -1;
+  }
+
+  .composer-publish-group .primary-action {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .composer-tools {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 520px) {

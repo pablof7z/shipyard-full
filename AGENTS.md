@@ -36,4 +36,5 @@ Each crate has a clear domain:
 - Docker Compose must validate: `docker-compose config`
 - No backend behavior in TypeScript/SvelteKit
 - No owner private keys ever touch the backend
+- After every significant modification to a service, immediately redeploy or restart that service.
 - Every milestone has explicit success/fail criteria — a milestone is not done until all pass
