@@ -1,0 +1,147 @@
+.stats-grid {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 14px;
+  display: grid;
+  gap: 5px;
+}
+
+.stat span,
+.stat small {
+  color: var(--text-secondary);
+}
+
+.stat strong {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat.attention strong {
+  color: #f87171;
+}
+
+.meta-line,
+.muted-text {
+  color: var(--text-tertiary);
+}
+
+.meta-line {
+  font-size: 12px;
+}
+
+.rows {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rows.compact .row {
+  min-height: 46px;
+}
+
+.row {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+  gap: 16px;
+  align-items: center;
+  padding: 11px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+.row p {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row p:has(strong) {
+  display: grid;
+  gap: 2px;
+  white-space: normal;
+}
+
+.row p strong,
+.row p span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row p span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.row time {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.draft-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.badge {
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.badge[data-state='SCHEDULED'],
+.badge[data-state='SIGNED'] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.badge[data-state='PROPOSED'] {
+  color: #fbbf24;
+  background: color-mix(in srgb, #fbbf24 12%, transparent);
+}
+
+.badge[data-state='FAILED'] {
+  color: #f87171;
+  background: color-mix(in srgb, #f87171 12%, transparent);
+}
+
+.badge[data-state='NEEDS_SIGNATURE'] {
+  color: #60a5fa;
+  background: color-mix(in srgb, #60a5fa 12%, transparent);
+}
+
+.badge[data-state='PUBLISHED'] {
+  color: #34d399;
+  background: color-mix(in srgb, #34d399 12%, transparent);
+}
+
+.badge[data-state='REJECTED'],
+.badge[data-state='CANCELLED'],
+.badge[data-state='PUBLISHING'] {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
