@@ -1,218 +1,205 @@
-# Shipyard CLI Skill
+# Shipyard CLI — Agent Reference
 
-This skill lets an agent operate Shipyard — a Nostr post scheduling and publishing platform — through the `shipyard` Rust CLI. Agents use it to propose content to human owners, manage queues, relays, and devices, check publish state, and inspect DVM requests.
+This skill lets an agent operate Shipyard — a Nostr post scheduling and publishing platform — through the `shipyard` Rust CLI. Agents use it to propose content to human owners, manage queues, relays, and devices, check publish state, and inspect DVM requests. Agents never touch the owner's private key.
 
-> **Key safety rule:** Never ask for or store a human private key. Agents authenticate with their own pubkey and propose to the human owner pubkey. A post is not published until `state: "PUBLISHED"` appears in the response.
-
----
-
-## Global Flags
-
-All commands accept these flags:
-
-| Flag | Env var | Purpose |
-|---|---|---|
-| `--json` | — | Machine-readable output (always use this) |
-| `--api-url <url>` | `SHIPYARD_API_URL` | Override API base URL |
-| `--session-token <tok>` | `SHIPYARD_SESSION_TOKEN` | Override session token |
-| `--owner-pubkey <hex>` | `SHIPYARD_OWNER_PUBKEY` | Override owner pubkey |
+The `shipyard` binary talks to the Shipyard API. All output is JSON when `--json` is passed.
 
 ---
 
-## Auth
+## Core Use Cases for Agents
+
+| Goal | What to do |
+|---|---|
+| Propose a post for a human to review & sign | `shipyard propose` |
+| Schedule a post the agent has already signed | `shipyard schedule` |
+| Check whether a post was actually published | `shipyard posts show` |
+| Manage a timed posting queue | `shipyard queues *` |
+| Invite another agent as a delegate | `shipyard delegates invite` |
+
+---
+
+## Quick-Start Workflow
+
+### 1. Install
+
+Download the binary for your platform, verify the SHA-256 from the release manifest, and
+place it on `PATH`. See `SKILL.md` for the expected manifest shape.
+
+### 2. Configure
 
 ```bash
-# Check current auth state
+mkdir -p ~/.config/shipyard
+cat > ~/.config/shipyard/config.toml <<EOF
+api_url        = "https://api.shipyard.example"
+session_token  = "<session-token>"
+default_account = "<owner-pubkey-hex>"
+output         = "json"
+EOF
+```
+
+Or use environment variables (useful in CI / agent home `.env`):
+
+```bash
+export SHIPYARD_API_URL=https://api.shipyard.example
+export SHIPYARD_SESSION_TOKEN=<session-token>
+export SHIPYARD_OWNER_PUBKEY=<owner-pubkey-hex>
+```
+
+### 3. Verify auth
+
+```bash
 shipyard auth status --json
+```
 
-# Login with an existing session token
+Expected success shape:
+
+```json
+{ "authenticated": true, "pubkey": "<agent-pubkey>" }
+```
+
+---
+
+## Example: Agent Creates a Proposal for a Human Owner
+
+This is the primary agent flow when the agent cannot sign on behalf of the owner.
+
+```bash
+# 1. Draft content and show it to the human before submitting
+CONTENT="Just shipped: Shipyard now supports batch signing. Thread below 🧵"
+
+# 2. Create the proposal
+shipyard propose \
+  --to <owner-pubkey-hex> \
+  --content "$CONTENT" \
+  --time "2026-04-20T14:00:00Z" \
+  --json
+```
+
+Response includes a `proposal_id`. Share this with the owner so they can review, edit,
+and sign from their own client.
+
+```bash
+# 3. Check proposal status
+shipyard proposals list --owner-pubkey <owner-pubkey-hex> --json
+```
+
+```bash
+# 4. Wait for owner to sign, then verify publication
+shipyard posts show <publish-item-id> --owner-pubkey <owner-pubkey-hex> --json
+```
+
+Only report success when the response contains `"state": "PUBLISHED"` **and** a non-empty
+`accepted_relays` list. Do not assume publication from queue entry alone.
+
+---
+
+## Key Command Reference
+
+### Auth
+
+```bash
+shipyard auth status --json
 shipyard auth login --session-token <token> --json
-
-# Login by submitting a pre-signed auth event (kind 27235)
 shipyard auth login --event-json ./auth-event.json --json
-
-# Logout
 shipyard auth logout --json
 ```
 
----
-
-## Accounts
+### Accounts & Delegates
 
 ```bash
-# List accounts the session can act on
 shipyard accounts list --json
-
-# Set the default owner for subsequent commands
 shipyard accounts use <owner-pubkey> --json
-```
 
----
-
-## Delegates
-
-Delegates are pubkeys permitted to act on behalf of an owner.
-
-```bash
-shipyard delegates list --owner-pubkey <owner> --json
+shipyard delegates list   --owner-pubkey <owner> --json
 shipyard delegates invite <delegate-pubkey> --owner-pubkey <owner> --json
 shipyard delegates revoke <delegate-pubkey> --owner-pubkey <owner> --json
 ```
 
----
-
-## Queues
-
-Queues define a posting cadence. Each queue slot is a time window for a scheduled post.
+### Proposals
 
 ```bash
-# List all queues for an owner
-shipyard queues list --owner-pubkey <owner> --json
-
-# Create a queue (cadence in seconds; 86400 = daily)
-shipyard queues create \
-  --name Daily \
-  --cadence 86400 \
-  --start 2026-04-18T10:00:00Z \
-  --owner-pubkey <owner> --json
-
-# Update a queue
-shipyard queues update <queue-id> --name Weekly --cadence 604800 --json
-
-# Get the next available slot time
-shipyard queues next-slot <queue-id> --json
-
-# Archive a queue (stops new slots)
-shipyard queues archive <queue-id> --json
-```
-
----
-
-## Relays
-
-```bash
-# List configured relays
-shipyard relays list --owner-pubkey <owner> --json
-
-# Replace all relays
-shipyard relays set wss://relay.damus.io wss://relay.primal.net --owner-pubkey <owner> --json
-
-# Add a single relay
-shipyard relays add wss://relay.example.com --owner-pubkey <owner> --json
-
-# Remove a relay
-shipyard relays remove wss://relay.example.com --owner-pubkey <owner> --json
-```
-
----
-
-## Devices
-
-Device commands manage push notification device tokens for the authenticated session. Use `--owner <pubkey>` on register or update when the token should be associated with a specific owner account.
-
-```bash
-# List registered devices
-shipyard devices list --json
-
-# Register or refresh a device token
-shipyard devices register --platform ios --token <device-token> --owner <owner> --enabled true --json
-
-# Disable or reassign a device token
-shipyard devices update <device-id> --enabled false --json
-shipyard devices update <device-id> --owner <owner> --json
-
-# Delete a device token
-shipyard devices delete <device-id> --json
-```
-
----
-
-## Propose (Agent → Human Owner)
-
-Use `propose` when the agent cannot sign for the owner. The human receives the proposal and signs it.
-
-```bash
-# Show the human the content first, then create the proposal
 shipyard propose \
-  --to <human-owner-pubkey> \
-  --content "Today's insight: Nostr is unstoppable." \
-  --time 2026-04-18T10:00:00Z \
-  --json
-```
+  --to <owner> --content "..." --time 2026-04-20T14:00:00Z --json
 
-Returns a proposal ID. Track it with:
-
-```bash
-shipyard proposals list --owner-pubkey <owner> --json
-```
-
-### Proposal lifecycle management
-
-```bash
-# Delete a proposal (before signing)
+shipyard proposals list   --owner-pubkey <owner> --json
 shipyard proposals delete <id> --json
-
-# Reject with a reason
-shipyard proposals reject <id> --reason "Off-brand" --json
-
-# Submit a signed event for a proposal (owner signs externally)
-shipyard proposals sign <id> --event-json ./signed-event.json --json
-
-# Batch-sign multiple proposals
+shipyard proposals reject <id> --reason "Not a fit" --json
+shipyard proposals sign   <id> --event-json ./signed-event.json --json
 shipyard proposals batch-sign --file ./batch-sign.json --json
 ```
 
----
-
-## Schedule & Send
-
-Use when the agent already has a signed Nostr event JSON.
+### Scheduling (agent-signed events)
 
 ```bash
-# Schedule for a specific time
-shipyard schedule --event-json ./signed-event.json --time 2026-04-18T10:00:00Z --json
+# Schedule for a future time
+shipyard schedule --event-json ./signed-event.json --time 2026-04-20T14:00:00Z --json
 
 # Publish immediately
 shipyard send-now --event-json ./signed-event.json --json
 ```
 
----
-
-## Posts (Publish Items)
+### Posts
 
 ```bash
-# List scheduled/published posts for an owner
-shipyard posts list --owner-pubkey <owner> --json
-
-# Inspect a specific post — check for state: "PUBLISHED" before reporting success
-shipyard posts show <id> --owner-pubkey <owner> --json
-
-# Cancel a pending post
+shipyard posts list   --owner-pubkey <owner> --json
+shipyard posts show   <id> --owner-pubkey <owner> --json
 shipyard posts cancel <id> --json
-
-# Retry a failed post
-shipyard posts retry <id> --json
+shipyard posts retry  <id> --json
 ```
 
 **A post is not published until `posts show` returns `state: "PUBLISHED"` with accepted relays.**
 
----
+### Queues
 
-## DVM
+```bash
+shipyard queues list --owner-pubkey <owner> --json
+
+shipyard queues create \
+  --name "Daily" --cadence 86400 \
+  --start 2026-04-18T10:00:00Z \
+  --owner-pubkey <owner> --json
+
+shipyard queues next-slot <queue-id> --json
+shipyard queues update   <queue-id> --name "Weekly" --cadence 604800 --json
+shipyard queues archive  <queue-id> --json
+```
+
+### Relays
+
+```bash
+shipyard relays list   --owner-pubkey <owner> --json
+shipyard relays set    wss://relay.damus.io wss://relay.primal.net --owner-pubkey <owner> --json
+shipyard relays add    wss://relay.example.com --owner-pubkey <owner> --json
+shipyard relays remove wss://relay.example.com --owner-pubkey <owner> --json
+```
+
+### Devices
+
+Device commands manage push notification device tokens for the authenticated session. Pass `--owner <pubkey>` on register or update to associate the token with a specific owner account.
+
+```bash
+shipyard devices list --json
+shipyard devices register --platform ios --token <device-token> --owner <owner> --enabled true --json
+shipyard devices update <device-id> --enabled false --json
+shipyard devices update <device-id> --owner <owner> --json
+shipyard devices delete <device-id> --json
+```
+
+### DVM / Status
 
 The DVM interface lists stored Nostr kind `5905` job requests. DVM scheduling is handled by the long-running DVM service, not by a CLI endpoint.
 
 ```bash
-# List incoming DVM scheduling requests for an owner
+shipyard status --json
 shipyard dvm requests --owner-pubkey <owner> --json
 ```
 
 ---
 
-## Server Status
+## Safety Notes
 
-```bash
-shipyard status --json
-```
-
-Returns API version and health info.
+- **Use your own pubkey.** Authenticate as the agent, not the human owner.
+- **Never ask for or store a private key.** The human signs from their own client.
+- **Propose, don't sign.** When acting on behalf of an owner, use `propose` so they retain control.
+- **Show content first.** Display the post text to the human before calling `propose`.
+- **Confirm publication explicitly.** Poll `posts show` until `state: "PUBLISHED"` — don't infer success from scheduling alone.
