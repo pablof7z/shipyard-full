@@ -25,14 +25,14 @@ services:
     environment:
       DATABASE_URL: postgres://shipyard:shipyard@postgres:5432/shipyard
       SHIPYARD_API_BIND: 0.0.0.0:8080
-      SHIPYARD_AUTH_DOMAIN: localhost
-      SHIPYARD_AUTH_URL: http://localhost:8080/v1/auth/login
+      SHIPYARD_AUTH_DOMAIN: ${SHIPYARD_AUTH_DOMAIN:-localhost}
+      SHIPYARD_AUTH_URL: ${SHIPYARD_AUTH_URL:-http://localhost:8080/v1/auth/login}
       RUST_LOG: shipyard_api=info,tower_http=info
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "${SHIPYARD_API_HOST_PORT:-8080}:8080"
 
   worker:
     build:
@@ -43,6 +43,8 @@ services:
     environment:
       DATABASE_URL: postgres://shipyard:shipyard@postgres:5432/shipyard
       RUST_LOG: shipyard_worker=info
+      SHIPYARD_WORKER_TICK_SECONDS: ${SHIPYARD_WORKER_TICK_SECONDS:-5}
+      SHIPYARD_WORKER_BASE_BACKOFF_SECONDS: ${SHIPYARD_WORKER_BASE_BACKOFF_SECONDS:-30}
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,8 +57,9 @@ services:
         BIN: shipyard-dvm
     environment:
       DATABASE_URL: postgres://shipyard:shipyard@postgres:5432/shipyard
-      SHIPYARD_DVM_RELAYS: wss://relay.damus.io,wss://relay.primal.net
-      SHIPYARD_DVM_SECRET_KEY: "1111111111111111111111111111111111111111111111111111111111111111"
+      SHIPYARD_DVM_RELAYS: ${SHIPYARD_DVM_RELAYS:-wss://relay.damus.io,wss://relay.primal.net}
+      SHIPYARD_DVM_SECRET_KEY: ${SHIPYARD_DVM_SECRET_KEY:-1111111111111111111111111111111111111111111111111111111111111111}
+      SHIPYARD_DVM_TICK_SECONDS: ${SHIPYARD_DVM_TICK_SECONDS:-5}
       RUST_LOG: shipyard_dvm=info
     depends_on:
       postgres:
@@ -67,12 +70,12 @@ services:
       context: ..
       dockerfile: deploy/web.Dockerfile
     environment:
-      PUBLIC_SHIPYARD_API_URL: http://localhost:8080
-      PUBLIC_SHIPYARD_AUTH_DOMAIN: localhost
-      PUBLIC_SHIPYARD_AUTH_URL: http://localhost:8080/v1/auth/login
+      PUBLIC_SHIPYARD_API_URL: ${PUBLIC_SHIPYARD_API_URL:-http://localhost:8080}
+      PUBLIC_SHIPYARD_AUTH_DOMAIN: ${PUBLIC_SHIPYARD_AUTH_DOMAIN:-localhost}
+      PUBLIC_SHIPYARD_AUTH_URL: ${PUBLIC_SHIPYARD_AUTH_URL:-http://localhost:8080/v1/auth/login}
       NODE_ENV: production
     ports:
-      - "3000:3000"
+      - "${SHIPYARD_WEB_HOST_PORT:-3000}:3000"
     depends_on:
       - api
 

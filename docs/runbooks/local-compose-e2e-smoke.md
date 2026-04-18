@@ -3,19 +3,48 @@
 This checklist validates the Milestone 13 local path across web, API, worker,
 DVM, and Postgres.
 
-## Current Automation Status
+## Automated Smoke Script
 
-There is no fully executable E2E smoke test in the repository today. The current
-Compose stack also does not include:
+Run the executable smoke script before release candidates and after changes to
+auth, queues, proposals, worker publishing, or Compose wiring:
 
-- a local Nostr relay container;
-- deterministic owner/delegate signer fixtures;
-- a browser automation test that drives NIP-07 signing;
-- a CLI command that creates a valid signed owner event without external signer
-  setup.
+```bash
+scripts/local-compose-smoke.sh
+```
 
-Until those fixtures exist, run the manual checklist below and capture command
-output plus screenshots in the release notes.
+The script creates an isolated Docker Compose project with non-default host
+ports by default:
+
+- Web: `http://127.0.0.1:13000`
+- API: `http://127.0.0.1:18080`
+- Postgres: `127.0.0.1:15432`
+
+It validates:
+
+- Compose configuration.
+- API and web boot.
+- deterministic signed kind `27235` auth for a test-only owner key.
+- relay settings round-trip.
+- queue creation and next-slot lookup.
+- queued proposal creation and owner signing into `SCHEDULED`.
+- due `send-now` item creation and at least one worker `publish_attempt` row.
+- authenticated DVM request API availability and DVM service process startup.
+
+Useful options:
+
+```bash
+SHIPYARD_SMOKE_KEEP_STACK=1 scripts/local-compose-smoke.sh
+SHIPYARD_SMOKE_API_PORT=28080 SHIPYARD_SMOKE_WEB_PORT=23000 scripts/local-compose-smoke.sh
+SHIPYARD_SMOKE_PROJECT=shipyard-smoke-debug scripts/local-compose-smoke.sh
+```
+
+The script intentionally uses `ws://127.0.0.1:9` as a local failing relay so the
+worker path can be exercised without publishing test notes to public relays. It
+therefore asserts durable publish attempts, not successful relay acceptance.
+
+The repository still does not include a local Nostr relay fixture or browser
+automation for NIP-07 signing. Until those exist, DVM request ingestion and the
+browser signer path remain manual checks.
 
 ## Bring Up The Stack
 
@@ -31,6 +60,18 @@ Expected local services:
 - Postgres: `localhost:5432`
 - Worker: background service
 - DVM: background service using `SHIPYARD_DVM_RELAYS`
+
+To avoid port conflicts, override host ports:
+
+```bash
+SHIPYARD_API_HOST_PORT=18080 \
+SHIPYARD_WEB_HOST_PORT=13000 \
+SHIPYARD_POSTGRES_HOST_PORT=15432 \
+SHIPYARD_AUTH_URL=http://localhost:18080/v1/auth/login \
+PUBLIC_SHIPYARD_API_URL=http://localhost:18080 \
+PUBLIC_SHIPYARD_AUTH_URL=http://localhost:18080/v1/auth/login \
+docker compose -f deploy/docker-compose.yml up --build
+```
 
 Health checks:
 
@@ -65,9 +106,9 @@ receive signed auth events and signed publish events only.
 Manual API alternative:
 
 ```bash
-curl -sS http://localhost:8080/v1/auth/login \
+curl -sS -X POST http://localhost:8080/v1/auth/login \
   -H 'content-type: application/json' \
-  -d @tmp/auth-event.json
+  -d @tmp/auth-request.json
 ```
 
 Record the returned `session_token`:
@@ -239,6 +280,10 @@ requests. Because Compose does not provide a local relay or DVM request fixture,
 this step currently requires an external test relay and a separately signed kind
 `5905` request addressed to the configured DVM pubkey.
 
+`scripts/local-compose-smoke.sh` validates that the DVM service starts and that
+the authenticated `/v1/dvm/requests` API is available. It does not prove relay
+ingestion.
+
 Manual verification:
 
 ```bash
@@ -262,6 +307,7 @@ Success criteria:
 
 Attach the following to the release checklist:
 
+- `scripts/local-compose-smoke.sh` output.
 - Compose config command output.
 - API, worker, and DVM log excerpts with secrets redacted.
 - Screenshot or JSON output for login, relay config, queue, proposal, scheduled
