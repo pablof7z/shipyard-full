@@ -2,7 +2,10 @@
   import { onMount } from 'svelte';
   import { shipyardApi } from '$lib/api/client';
   import { compactPubkey, readShipyardSession, type ShipyardSession } from '$lib/api/session';
+  import BlossomUploadPanel from '$lib/components/write/BlossomUploadPanel.svelte';
+  import DraftWrapPanel from '$lib/components/write/DraftWrapPanel.svelte';
   import type { ApiErrorBody, PublishTrigger, Queue } from '$lib/api/types';
+  import type { DraftSourceEvent } from '$lib/nostr/drafts';
 
   let session = $state<ShipyardSession>({ token: '', ownerPubkey: '' });
   let queues = $state<Queue[]>([]);
@@ -56,6 +59,16 @@
       content,
       sig: null
     };
+  }
+
+  function loadDraftIntoComposer(draft: DraftSourceEvent) {
+    content = draft.content;
+    tagsText = JSON.stringify(draft.tags ?? [], null, 2);
+  }
+
+  function insertBlossomUrl(url: string) {
+    const separator = content.trim() ? '\n' : '';
+    content = `${content}${separator}${url}`;
   }
 
   async function loadWriteContext() {
@@ -248,5 +261,15 @@
         {/if}
       </div>
     </form>
+  </div>
+
+  <div class="two-column">
+    <DraftWrapPanel
+      {content}
+      {tagsText}
+      ownerPubkey={session.ownerPubkey}
+      onLoadDraft={loadDraftIntoComposer}
+    />
+    <BlossomUploadPanel onInsertUrl={insertBlossomUrl} />
   </div>
 </section>

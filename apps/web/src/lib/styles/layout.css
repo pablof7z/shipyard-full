@@ -1,0 +1,102 @@
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border-subtle);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, transparent 0 42%, var(--accent) 42% 58%, transparent 58%),
+    var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+}
+
+.nav {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-item {
+  padding: 7px 8px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
+
+.nav-item:hover,
+.nav-item.active {
+  background: var(--sidebar-active);
+  color: var(--text-primary);
+}
+
+.account-pill {
+  margin-top: auto;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.account-pill strong,
+.account-pill small {
+  display: block;
+}
+
+.account-pill small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.main {
+  min-width: 0;
+}
+
+.page-header {
+  min-height: 65px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
+}
