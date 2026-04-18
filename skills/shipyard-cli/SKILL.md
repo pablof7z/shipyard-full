@@ -1,6 +1,6 @@
 ---
 name: shipyard-cli
-description: Use when an agent needs to install, configure, or operate Shipyard through the Rust shipyard CLI, especially to propose Nostr posts to a human owner, inspect proposal status, schedule signed posts, or work with queues, relays, media, and DVM-compatible scheduling. Agents must use their own pubkey and must not ask for or store a human private key.
+description: Use when an agent needs to install, configure, or operate Shipyard through the Rust shipyard CLI, especially to propose Nostr posts to a human owner, inspect proposal status, schedule signed posts, or work with queues, relays, devices, and DVM requests. Agents must use their own pubkey and must not ask for or store a human private key.
 ---
 
 # Shipyard CLI
@@ -131,6 +131,10 @@ shipyard relays list --owner-pubkey <owner> --json
 shipyard relays set wss://relay.damus.io wss://relay.primal.net --owner-pubkey <owner> --json
 shipyard relays add wss://relay.example.com --owner-pubkey <owner> --json
 shipyard relays remove wss://relay.example.com --owner-pubkey <owner> --json
+shipyard devices list --json
+shipyard devices register --platform ios --token <device-token> --owner <owner> --enabled true --json
+shipyard devices update <device-id> --enabled false --json
+shipyard devices delete <device-id> --json
 shipyard propose --to <owner> --content "..." --time 2026-04-18T10:00:00Z --json
 shipyard proposals list --owner-pubkey <owner> --json
 shipyard proposals delete <id> --json

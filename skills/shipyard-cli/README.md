@@ -1,6 +1,6 @@
 # Shipyard CLI Skill
 
-This skill lets an agent operate Shipyard — a Nostr post scheduling and publishing platform — through the `shipyard` Rust CLI. Agents use it to propose content to human owners, manage queues and relays, check publish state, and submit DVM scheduling requests.
+This skill lets an agent operate Shipyard — a Nostr post scheduling and publishing platform — through the `shipyard` Rust CLI. Agents use it to propose content to human owners, manage queues, relays, and devices, check publish state, and inspect DVM requests.
 
 > **Key safety rule:** Never ask for or store a human private key. Agents authenticate with their own pubkey and propose to the human owner pubkey. A post is not published until `state: "PUBLISHED"` appears in the response.
 
@@ -106,6 +106,27 @@ shipyard relays remove wss://relay.example.com --owner-pubkey <owner> --json
 
 ---
 
+## Devices
+
+Device commands manage push notification device tokens for the authenticated session. Use `--owner <pubkey>` on register or update when the token should be associated with a specific owner account.
+
+```bash
+# List registered devices
+shipyard devices list --json
+
+# Register or refresh a device token
+shipyard devices register --platform ios --token <device-token> --owner <owner> --enabled true --json
+
+# Disable or reassign a device token
+shipyard devices update <device-id> --enabled false --json
+shipyard devices update <device-id> --owner <owner> --json
+
+# Delete a device token
+shipyard devices delete <device-id> --json
+```
+
+---
+
 ## Propose (Agent → Human Owner)
 
 Use `propose` when the agent cannot sign for the owner. The human receives the proposal and signs it.
@@ -179,7 +200,7 @@ shipyard posts retry <id> --json
 
 ## DVM
 
-The DVM interface allows scheduling via Nostr kind `5905` job requests.
+The DVM interface lists stored Nostr kind `5905` job requests. DVM scheduling is handled by the long-running DVM service, not by a CLI endpoint.
 
 ```bash
 # List incoming DVM scheduling requests for an owner
