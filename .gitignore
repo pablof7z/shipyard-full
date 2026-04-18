@@ -6,6 +6,7 @@ build
 dist
 .env
 .env.local
+.vercel
 *.log
 *.db
 coverage

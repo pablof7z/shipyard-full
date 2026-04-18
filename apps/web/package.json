@@ -15,6 +15,7 @@
     "@nostr-dev-kit/ndk-svelte": "^2.4.48",
     "@nostr-dev-kit/sessions": "^1.0.0",
     "@sveltejs/adapter-node": "^5.2.12",
+    "@sveltejs/adapter-vercel": "^6.3.3",
     "@sveltejs/kit": "^2.16.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@types/node": "^22.10.10",
@@ -22,6 +23,5 @@
     "svelte-check": "^4.1.4",
     "typescript": "^5.7.3",
     "vite": "^6.0.11"
-  },
-  "devDependencies": {}
+  }
 }

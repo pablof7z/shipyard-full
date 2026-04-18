@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { env } from '$env/dynamic/public';
   import { onMount } from 'svelte';
   import { shipyardApi, shipyardApiBase } from '$lib/api/client';
   import {
@@ -28,11 +29,10 @@
   let saving = $state(false);
   let message = $state('');
   let error = $state('');
-  const loginPlaceholder =
-    '{"kind":27235,"pubkey":"...","tags":[["domain","localhost"]],"content":"Sign in to Shipyard."}';
-  const authDomain = import.meta.env.PUBLIC_SHIPYARD_AUTH_DOMAIN ?? 'localhost';
+  const authDomain = env.PUBLIC_SHIPYARD_AUTH_DOMAIN ?? 'localhost';
   const authUrl =
-    import.meta.env.PUBLIC_SHIPYARD_AUTH_URL ?? `${shipyardApiBase}/v1/auth/login`;
+    env.PUBLIC_SHIPYARD_AUTH_URL ?? `${shipyardApiBase}/v1/auth/login`;
+  const loginPlaceholder = `{"kind":27235,"pubkey":"...","tags":[["domain","${authDomain}"]],"content":"Sign in to Shipyard."}`;
 
   function setError(err: unknown, fallback: string) {
     error = (err as ApiErrorBody).message ?? fallback;

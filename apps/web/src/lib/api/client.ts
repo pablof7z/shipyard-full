@@ -1,3 +1,5 @@
+import { env } from '$env/dynamic/public';
+
 import type {
   AccountResponse,
   ApiErrorBody,
@@ -17,7 +19,7 @@ import type {
 } from './types';
 
 export const shipyardApiBase =
-  import.meta.env.PUBLIC_SHIPYARD_API_URL ?? 'http://localhost:8080';
+  env.PUBLIC_SHIPYARD_API_URL ?? 'http://localhost:8080';
 
 type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   token?: string;
