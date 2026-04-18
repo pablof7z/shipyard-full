@@ -186,6 +186,21 @@ shipyard relays add <relay>
 shipyard relays remove <relay>
 ```
 
+### Devices
+
+```bash
+shipyard devices list
+shipyard devices register --platform <ios|android> --token <device-token> [--owner <owner-pubkey>] [--enabled <true|false>]
+shipyard devices update <device-id> [--owner <owner-pubkey>] [--enabled <true|false>]
+shipyard devices delete <device-id>
+```
+
+Rules:
+
+- Requires an authenticated session.
+- `--owner` associates a device token with an owner account the session can access.
+- `update` fails unless at least one of `--owner` or `--enabled` is provided.
+
 ### Status
 
 ```bash
@@ -198,10 +213,9 @@ shipyard posts retry <id>
 
 ### DVM
 
-The CLI may help create compatible DVM requests:
+The CLI lists compatible DVM requests stored from the kind `5905` DVM service:
 
 ```bash
-shipyard dvm schedule --dvm <pubkey> --event-json <path> --relay <relay>
 shipyard dvm requests
 ```
 

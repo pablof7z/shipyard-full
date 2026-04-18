@@ -63,6 +63,10 @@ enum Command {
         #[command(subcommand)]
         command: relays::RelaysCommand,
     },
+    Devices {
+        #[command(subcommand)]
+        command: devices::DevicesCommand,
+    },
     Propose(publish::ProposeArgs),
     Proposals {
         #[command(subcommand)]
@@ -105,6 +109,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<Value> {
         Command::Delegates { command } => delegates::run(&client, command).await,
         Command::Queues { command } => queues::run(&client, command).await,
         Command::Relays { command } => relays::run(&client, command).await,
+        Command::Devices { command } => devices::run(&client, command).await,
         Command::Propose(args) => publish::create_proposal(&client, args).await,
         Command::Proposals { command } => proposals::run(&client, command).await,
         Command::Schedule(args) => publish::schedule(&client, args).await,
