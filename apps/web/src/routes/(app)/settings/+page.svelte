@@ -30,6 +30,9 @@
   let saving = $state(false);
   let message = $state('');
   let error = $state('');
+  let agentPromptCopied = $state(false);
+  let skillUrl = $state('');
+  let agentPrompt = $state('');
   const authDomain = env.PUBLIC_SHIPYARD_AUTH_DOMAIN ?? 'localhost';
   const authUrl =
     env.PUBLIC_SHIPYARD_AUTH_URL ?? `${shipyardApiBase}/v1/auth/login`;
@@ -235,7 +238,21 @@
     }
   }
 
-  onMount(loadSettings);
+  async function copyAgentPrompt() {
+    try {
+      await navigator.clipboard.writeText(agentPrompt);
+      agentPromptCopied = true;
+      setTimeout(() => (agentPromptCopied = false), 1500);
+    } catch {
+      agentPromptCopied = false;
+    }
+  }
+
+  onMount(() => {
+    skillUrl = `${window.location.origin}/SKILL.md`;
+    agentPrompt = `Read ${skillUrl} and follow the instructions.`;
+    loadSettings();
+  });
 </script>
 
 <svelte:head>
@@ -379,4 +396,69 @@
       </div>
     </div>
   </div>
+
+  <div id="agents" class="card-form agents-card">
+    <div class="section-header">
+      <h2>Agents</h2>
+      <a class="secondary-action" href="/SKILL.md" target="_blank" rel="noopener">View SKILL.md</a>
+    </div>
+
+    <p class="agent-copy">
+      Shipyard exposes an <a href="https://agentskills.io/specification" target="_blank" rel="noopener">AgentSkills</a>-compliant skill that teaches an AI agent how to
+      install the Shipyard CLI and propose posts on your behalf. Paste the prompt below into Claude
+      Code, Cursor, or any agent that follows skill URLs.
+    </p>
+
+    <label class="field">
+      <span>Agent prompt</span>
+      <div class="agent-prompt-row">
+        <input type="text" readonly value={agentPrompt} />
+        <button type="button" class="primary-action" onclick={copyAgentPrompt}>
+          {agentPromptCopied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+    </label>
+
+    <ul class="agent-bullets">
+      <li>The agent authenticates with <strong>its own pubkey</strong>, not yours.</li>
+      <li>It proposes posts; <strong>you review and sign</strong> from Proposals.</li>
+      <li>Invite the agent's pubkey as a delegate above so its proposals reach you.</li>
+    </ul>
+  </div>
 </section>
+
+<style>
+  .agents-card {
+    margin-top: 24px;
+  }
+
+  .agent-copy {
+    margin: 8px 0 16px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .agent-copy a {
+    color: var(--accent);
+  }
+
+  .agent-prompt-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .agent-prompt-row input {
+    flex: 1;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+  }
+
+  .agent-bullets {
+    margin: 16px 0 0;
+    padding: 0 0 0 18px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+</style>
