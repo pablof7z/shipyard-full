@@ -1,8 +1,14 @@
 <script lang="ts">
-  import { NDKNip07Signer, NDKPrivateKeySigner, NDKNip46Signer, nip19 } from '@nostr-dev-kit/ndk';
+  import {
+    NDKNip07Signer,
+    NDKPrivateKeySigner,
+    NDKNip46Signer,
+    nip19,
+    type NDKSigner
+  } from '@nostr-dev-kit/ndk';
   import { env } from '$env/dynamic/public';
   import { goto } from '$app/navigation';
-  import { ndk, ensureClientNdk } from '$lib/ndk/client';
+  import { ndk } from '$lib/ndk/client';
   import { shipyardApi, shipyardApiBase } from '$lib/api/client';
   import { writeShipyardSession } from '$lib/api/session';
   import { signNostrEventWithNdk } from '$lib/nostr/signing';
@@ -51,6 +57,11 @@
     await goto('/dashboard');
   }
 
+  async function loginSigner(signer: NDKSigner) {
+    const pubkey = await ndk.$sessions.login(signer);
+    await completeShipyardLogin(pubkey);
+  }
+
   function describeError(err: unknown, fallback: string) {
     if (err instanceof Error) return err.message || fallback;
     const api = err as ApiErrorBody;
@@ -66,9 +77,7 @@
     error = '';
     try {
       const signer = new NDKNip07Signer(1_000, ndk);
-      ndk.signer = signer;
-      const user = await signer.user();
-      await completeShipyardLogin(user.pubkey);
+      await loginSigner(signer);
     } catch (err) {
       error = describeError(err, "Couldn't sign you in. Try again?");
     } finally {
@@ -92,16 +101,10 @@
         const decoded = nip19.decode(trimmed);
         if (decoded.type !== 'nsec') throw new Error('Invalid nsec.');
         const signer = new NDKPrivateKeySigner(decoded.data as string);
-        ndk.signer = signer;
-        const user = await signer.user();
-        await completeShipyardLogin(user.pubkey);
+        await loginSigner(signer);
       } else if (credentialType === 'bunker') {
-        await ensureClientNdk();
         const signer = new NDKNip46Signer(ndk, trimmed);
-        await signer.blockUntilReady();
-        ndk.signer = signer;
-        const user = await signer.user();
-        await completeShipyardLogin(user.pubkey);
+        await loginSigner(signer);
       }
     } catch (err) {
       error = describeError(err, "Couldn't sign you in. Try again?");
