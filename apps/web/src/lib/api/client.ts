@@ -8,7 +8,6 @@ import type {
   BatchSignProposalResponse,
   CreateProposalRequest,
   DelegateResponse,
-  DvmRequest,
   LoginResponse,
   PublishItem,
   Queue,
@@ -164,7 +163,5 @@ export const shipyardApi = {
       token,
       ownerPubkey,
       body: { relay_urls: relayUrls }
-    }),
-  dvmRequests: (token: string, ownerPubkey: string) =>
-    request<DvmRequest[]>('/v1/dvm/requests', { token, ownerPubkey })
+    })
 };

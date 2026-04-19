@@ -17,7 +17,6 @@
     ['Scheduled', '/scheduled'],
     ['Queues', '/queues'],
     ['Proposals', '/proposals'],
-    ['DVM', '/dvm'],
     ['Published', '/published'],
     ['Settings', '/settings']
   ];

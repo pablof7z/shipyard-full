@@ -123,17 +123,6 @@ export type BatchSignProposalResponse = {
   }[];
 };
 
-export type DvmRequest = {
-  id: string;
-  request_event_id: string;
-  request_pubkey: string;
-  encrypted: boolean;
-  raw_request_event: Record<string, unknown>;
-  status: string;
-  error: string | null;
-  created_at: string;
-};
-
 export type ApiErrorBody = {
   code: string;
   message: string;
