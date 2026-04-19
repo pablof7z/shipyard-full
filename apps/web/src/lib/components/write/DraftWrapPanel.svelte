@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { compactPubkey } from '$lib/api/session';
   import {
     createDraftId,
     createSignedBlankDraftWrap,
@@ -29,7 +28,6 @@
 
   let draftId = $state(createDraftId());
   let records = $state<LocalDraftWrapRecord[]>([]);
-  let signedEventText = $state('');
   let saving = $state(false);
   let message = $state('');
   let error = $state('');
@@ -60,11 +58,11 @@
   async function signerPubkey() {
     const pubkey = await window.nostr?.getPublicKey?.();
     if (!pubkey) {
-      throw new Error('No browser Nostr signer is available.');
+      throw new Error('You need a browser signer to save drafts.');
     }
 
     if (ownerPubkey && pubkey !== ownerPubkey) {
-      throw new Error('Browser signer pubkey does not match the active owner.');
+      throw new Error("Sign in with the account you're posting from.");
     }
 
     return pubkey;
@@ -86,12 +84,11 @@
         }
       });
       draftId = activeDraftId;
-      signedEventText = JSON.stringify(signed, null, 2);
       upsertLocalDraftWrap(signed);
       refreshDrafts();
-      setMessage('Draft wrap saved locally.');
+      setMessage('Draft saved.');
     } catch (err) {
-      setError(err, 'Failed to save draft wrap.');
+      setError(err, "Couldn't save draft.");
     } finally {
       saving = false;
     }
@@ -105,7 +102,7 @@
       onLoadDraft(draft, record.draftId);
       setMessage('Draft loaded.');
     } catch (err) {
-      setError(err, 'Failed to load draft wrap.');
+      setError(err, "Couldn't load draft.");
     } finally {
       saving = false;
     }
@@ -116,7 +113,7 @@
     try {
       const pubkey = await signerPubkey();
       if (pubkey !== record.ownerPubkey) {
-        throw new Error('Browser signer pubkey does not match the draft owner.');
+        throw new Error("Sign in with the account you're posting from.");
       }
 
       const signed = await createSignedBlankDraftWrap({
@@ -125,12 +122,11 @@
         draftId: record.draftId,
         draftKind: record.targetKind
       });
-      signedEventText = JSON.stringify(signed, null, 2);
       upsertLocalDraftWrap(signed);
       refreshDrafts();
-      setMessage('Blank draft deletion saved locally.');
+      setMessage('Draft cleared.');
     } catch (err) {
-      setError(err, 'Failed to blank-delete draft wrap.');
+      setError(err, "Couldn't clear draft.");
     } finally {
       saving = false;
     }
@@ -139,7 +135,7 @@
   function forgetDraft(record: LocalDraftWrapRecord) {
     removeLocalDraftWrap(record.ownerPubkey, record.draftId);
     refreshDrafts();
-    setMessage('Local draft record removed.');
+    setMessage('Draft removed from this device.');
   }
 
   $effect(() => {
@@ -159,9 +155,9 @@
 
 <div class="card-form">
   <div class="section-header">
-    <h2>Draft Wraps</h2>
+    <h2>Drafts</h2>
     <button class="primary-action" type="button" onclick={saveDraftWrap} disabled={saving}>
-      Save Draft
+      Save draft
     </button>
   </div>
 
@@ -172,29 +168,20 @@
     <p class="meta-line error-text">{error}</p>
   {/if}
 
-  <label class="field">
-    <span>Draft identifier</span>
-    <input bind:value={draftId} autocomplete="off" />
-  </label>
-
   <div class="rows compact">
     {#if !records.length}
       <article class="row">
-        <p>No local draft wraps.</p>
+        <p>No drafts yet.</p>
       </article>
     {:else}
       {#each records as record}
         <article class="row draft-row">
           <p>
-            <strong>{record.draftId}</strong>
-            <span>
-              kind {record.targetKind} · {compactPubkey(record.ownerPubkey)} · {new Date(
-                record.updatedAt
-              ).toLocaleString()}
-            </span>
+            <strong>Draft</strong>
+            <span>{new Date(record.updatedAt).toLocaleString()}</span>
           </p>
           {#if record.deleted}
-            <span class="muted-text">Blanked</span>
+            <span class="muted-text">Cleared</span>
           {/if}
           <div class="inline-actions">
             <button
@@ -211,21 +198,14 @@
               onclick={() => blankDelete(record)}
               disabled={saving || record.deleted}
             >
-              Blank
+              Clear
             </button>
             <button class="secondary-action" type="button" onclick={() => forgetDraft(record)}>
-              Forget
+              Remove from this device
             </button>
           </div>
         </article>
       {/each}
     {/if}
   </div>
-
-  {#if signedEventText}
-    <label class="field">
-      <span>Last signed wrap</span>
-      <textarea value={signedEventText} rows="6" readonly spellcheck="false"></textarea>
-    </label>
-  {/if}
 </div>

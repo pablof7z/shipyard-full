@@ -65,7 +65,6 @@
     isLoading = true;
     error = '';
     try {
-      await ensureClientNdk();
       const signer = new NDKNip07Signer(1_000, ndk);
       ndk.signer = signer;
       const user = await signer.user();
@@ -89,8 +88,6 @@
     isLoading = true;
     error = '';
     try {
-      await ensureClientNdk();
-
       if (credentialType === 'nsec') {
         const decoded = nip19.decode(trimmed);
         if (decoded.type !== 'nsec') throw new Error('Invalid nsec.');
@@ -99,6 +96,7 @@
         const user = await signer.user();
         await completeShipyardLogin(user.pubkey);
       } else if (credentialType === 'bunker') {
+        await ensureClientNdk();
         const signer = new NDKNip46Signer(ndk, trimmed);
         await signer.blockUntilReady();
         ndk.signer = signer;

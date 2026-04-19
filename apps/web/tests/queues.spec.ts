@@ -7,43 +7,15 @@ import {
   API_BASE
 } from './helpers/api-mock';
 
-test.describe('Queues page — unauthenticated', () => {
+test.describe('Queues page — guarded route', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.clear());
-    await page.route(`${API_BASE}/v1/queues`, (route) =>
-      route.fulfill({ json: [] })
-    );
   });
 
-  test('renders page title', async ({ page }) => {
+  test('redirects unauthenticated visitors to landing', async ({ page }) => {
     await page.goto('/queues');
-    await expect(page).toHaveTitle('Queues - Shipyard');
-  });
-
-  test('shows Queues heading', async ({ page }) => {
-    await page.goto('/queues');
-    await expect(page.getByRole('heading', { name: 'Queues', level: 1 })).toBeVisible();
-  });
-
-  test('shows eyebrow label "Scheduling"', async ({ page }) => {
-    await page.goto('/queues');
-    await expect(page.locator('.eyebrow')).toHaveText('Scheduling');
-  });
-
-  test('shows session notice when not logged in', async ({ page }) => {
-    await page.goto('/queues');
-    await expect(page.locator('.notice').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/settings#login');
-  });
-
-  test('shows Create Queue form', async ({ page }) => {
-    await page.goto('/queues');
-    await expect(page.getByRole('heading', { name: 'Create Queue', level: 2 })).toBeVisible();
-    await expect(page.getByPlaceholder('Weekday posts')).toBeVisible();
-  });
-
-  test('Create button is disabled when name is empty', async ({ page }) => {
-    await page.goto('/queues');
-    await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveTitle('Shipyard - Schedule your Nostr posts');
   });
 });
 
@@ -57,6 +29,15 @@ test.describe('Queues page — authenticated', () => {
       },
       { token: MOCK_TOKEN, pubkey: MOCK_PUBKEY }
     );
+  });
+
+  test('renders page title and form shell', async ({ page }) => {
+    await page.goto('/queues');
+    await expect(page).toHaveTitle('Queues - Shipyard');
+    await expect(page.getByRole('heading', { name: 'Queues', level: 1 })).toBeVisible();
+    await expect(page.locator('.eyebrow')).toHaveText('Scheduling');
+    await expect(page.getByRole('heading', { name: 'Create Queue', level: 2 })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled();
   });
 
   /** Wait for active queues to finish loading */

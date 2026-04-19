@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { shipyardApi } from '$lib/api/client';
-  import { compactPubkey, readShipyardSession, type ShipyardSession } from '$lib/api/session';
+  import { readShipyardSession, type ShipyardSession } from '$lib/api/session';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import WelcomeModal from '$lib/components/onboarding/WelcomeModal.svelte';
+  import { loginModal } from '$lib/components/onboarding/loginState.svelte';
   import type { ApiErrorBody, PublishItem } from '$lib/api/types';
 
   type Stat = {
@@ -16,7 +17,6 @@
   let session = $state<ShipyardSession>({ token: '', ownerPubkey: '' });
   let items = $state<PublishItem[]>([]);
   let proposals = $state<PublishItem[]>([]);
-  let status = $state<Record<string, unknown> | null>(null);
   let loading = $state(true);
   let error = $state('');
 
@@ -45,19 +45,19 @@
       sub: nextScheduledLabel(items)
     },
     {
-      label: 'Pending Review',
+      label: 'Pending review',
       value: String(proposals.length),
       sub: proposalSourceLabel(proposals)
     },
     {
-      label: 'Published Today',
+      label: 'Published today',
       value: String(publishedTodayCount),
-      sub: items.length ? 'From active publish history' : 'No publish history loaded'
+      sub: publishedTodayCount ? 'Nice work' : 'Nothing out yet today'
     },
     {
-      label: 'Needs Attention',
+      label: 'Needs attention',
       value: String(failedCount),
-      sub: failedCount === 1 ? 'One failed publish' : `${failedCount} failed publishes`,
+      sub: failedCount === 1 ? '1 post failed' : failedCount ? `${failedCount} posts failed` : 'All good',
       attention: failedCount > 0
     }
   ]);
@@ -70,10 +70,10 @@
     ).size;
 
     if (!currentProposals.length) {
-      return 'Nothing waiting for review';
+      return 'Nothing waiting for you';
     }
 
-    return delegateCount ? `From ${delegateCount} delegate${delegateCount === 1 ? '' : 's'}` : 'Owner drafts only';
+    return delegateCount ? `From ${delegateCount} teammate${delegateCount === 1 ? '' : 's'}` : 'Your drafts';
   }
 
   function nextScheduledLabel(currentItems: PublishItem[]) {
@@ -82,7 +82,7 @@
       .sort((left, right) => Date.parse(left.publish_time ?? '') - Date.parse(right.publish_time ?? ''))[0];
 
     if (!next?.publish_time) {
-      return 'No scheduled publish time';
+      return 'Nothing queued';
     }
 
     return `Next ${formatDate(next.publish_time)}`;
@@ -91,7 +91,7 @@
   function eventSummary(item: PublishItem) {
     const event = item.unsigned_event_json ?? item.signed_event_json;
     const content = event?.content;
-    return typeof content === 'string' && content.trim() ? content : item.event_id ?? item.id;
+    return typeof content === 'string' && content.trim() ? content : 'Untitled post';
   }
 
   function formatDate(value: string | null) {
@@ -110,8 +110,6 @@
     session = readShipyardSession();
 
     try {
-      status = await shipyardApi.status();
-
       if (!session.token || !session.ownerPubkey) {
         items = [];
         proposals = [];
@@ -138,7 +136,7 @@
   <title>Shipyard</title>
   <meta
     name="description"
-    content="Shipyard publishing cockpit for Nostr queues, drafts, proposals, and scheduled posts."
+    content="Shipyard — schedule posts, manage drafts, and review teammate posts."
   />
 </svelte:head>
 
@@ -156,11 +154,8 @@
   <section class="notice error">{error}</section>
 {:else if !session.token || !session.ownerPubkey}
   <section class="notice">
-    <a href="/settings#login">Sign in with a browser signer</a> to load account-specific publishing data.
-  </section>
-{:else if status}
-  <section class="notice muted">
-    API connected for {compactPubkey(session.ownerPubkey)}.
+    <button class="link-button" type="button" onclick={() => loginModal.show()}>Sign in</button>
+    to load your publishing data.
   </section>
 {/if}
 
@@ -183,11 +178,11 @@
   <div class="rows">
     {#if loading}
       <article class="row">
-        <p>Loading publishing data...</p>
+        <p>Loading...</p>
       </article>
     {:else if !upcoming.length}
       <article class="row">
-        <p>No upcoming publish items.</p>
+        <p>Nothing scheduled yet.</p>
       </article>
     {:else}
       {#each upcoming as item}
@@ -203,18 +198,18 @@
 
 <section class="panel" aria-labelledby="review-title">
   <div class="section-header">
-    <h2 id="review-title">Pending Review</h2>
+    <h2 id="review-title">Pending review</h2>
     <a href="/proposals">Review</a>
   </div>
 
   <div class="rows">
     {#if loading}
       <article class="row">
-        <p>Loading proposals...</p>
+        <p>Loading...</p>
       </article>
     {:else if !proposals.length}
       <article class="row">
-        <p>No proposals waiting for owner action.</p>
+        <p>Nothing waiting for your review.</p>
       </article>
     {:else}
       {#each proposals.slice(0, 5) as proposal}

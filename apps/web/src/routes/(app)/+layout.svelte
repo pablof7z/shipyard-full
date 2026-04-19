@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import AppShell from '$lib/components/AppShell.svelte';
+  import LoginModal from '$lib/components/onboarding/LoginModal.svelte';
   import { readShipyardSession, sessionUpdatedEvent } from '$lib/api/session';
 
   let { children }: { children: import('svelte').Snippet } = $props();
@@ -32,3 +33,5 @@
     {@render children()}
   </AppShell>
 {/if}
+
+<LoginModal />

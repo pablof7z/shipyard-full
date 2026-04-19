@@ -77,13 +77,35 @@
   color: var(--text-tertiary);
 }
 
-.notice a {
+.notice a,
+.notice .link-button {
   color: var(--accent);
   font-weight: 700;
 }
 
-.notice a:hover {
+.notice a:hover,
+.notice .link-button:hover {
   color: var(--accent-hover);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-button:hover {
+  color: var(--accent-hover);
+}
+
+.link-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .panel {

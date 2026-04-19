@@ -245,12 +245,10 @@
 
   {#if drawer !== 'none'}
     <ComposerDrawer
-      {draftId}
       {draftRecords}
       drawer={drawer}
       {saving}
       onBlankDraft={blankDraft}
-      onDraftIdChange={(value) => (draftId = value)}
       onForgetDraft={forgetDraft}
       onInsertUrl={insertBlossomUrl}
       onLoadDraft={loadDraft}

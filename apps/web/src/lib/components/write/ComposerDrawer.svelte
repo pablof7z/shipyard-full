@@ -4,32 +4,25 @@
   import type { ComposerDrawerState } from './composer';
 
   let {
-    draftId,
     draftRecords,
     drawer,
     saving,
     onBlankDraft,
-    onDraftIdChange,
     onForgetDraft,
     onInsertUrl,
     onLoadDraft,
     onRefreshDrafts
   }: {
-    draftId: string;
     draftRecords: LocalDraftWrapRecord[];
     drawer: Exclude<ComposerDrawerState, 'none'>;
     saving: boolean;
     onBlankDraft: (record: LocalDraftWrapRecord) => void;
-    onDraftIdChange: (value: string) => void;
     onForgetDraft: (record: LocalDraftWrapRecord) => void;
     onInsertUrl: (url: string) => void;
     onLoadDraft: (record: LocalDraftWrapRecord) => void;
     onRefreshDrafts: () => void;
   } = $props();
 
-  function inputValue(event: Event) {
-    return (event.currentTarget as HTMLInputElement).value;
-  }
 </script>
 
 <aside class="composer-drawer" aria-label="Composer drawer">
@@ -41,18 +34,14 @@
         <h2>Drafts</h2>
         <button class="secondary-action" type="button" onclick={onRefreshDrafts}>Refresh</button>
       </div>
-      <label class="field">
-        <span>Draft identifier</span>
-        <input value={draftId} autocomplete="off" oninput={(event) => onDraftIdChange(inputValue(event))} />
-      </label>
       <div class="rows compact">
         {#if !draftRecords.length}
-          <article class="row"><p>No local draft wraps.</p></article>
+          <article class="row"><p>No drafts yet.</p></article>
         {:else}
           {#each draftRecords as record}
             <article class="row draft-row">
               <p>
-                <strong>{record.draftId}</strong>
+                <strong>Draft</strong>
                 <span>{new Date(record.updatedAt).toLocaleString()}</span>
               </p>
               <div class="inline-actions">
@@ -60,10 +49,10 @@
                   Load
                 </button>
                 <button class="danger-action" type="button" onclick={() => onBlankDraft(record)} disabled={record.deleted || saving}>
-                  Blank
+                  Clear
                 </button>
                 <button class="secondary-action" type="button" onclick={() => onForgetDraft(record)}>
-                  Forget
+                  Remove from device
                 </button>
               </div>
             </article>

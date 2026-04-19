@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { shipyardApi } from '$lib/api/client';
-  import { compactPubkey, readShipyardSession, type ShipyardSession } from '$lib/api/session';
+  import { readShipyardSession, type ShipyardSession } from '$lib/api/session';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
-  import type { ApiErrorBody, PublishItem } from '$lib/api/types';
+  import { loginModal } from '$lib/components/onboarding/loginState.svelte';
+  import type { ApiErrorBody, PublishItem, PublishTrigger } from '$lib/api/types';
 
   let session = $state<ShipyardSession>({ token: '', ownerPubkey: '' });
   let items = $state<PublishItem[]>([]);
@@ -19,7 +20,13 @@
   function eventSummary(item: PublishItem) {
     const event = item.unsigned_event_json ?? item.signed_event_json;
     const content = event?.content;
-    return typeof content === 'string' && content.trim() ? content : item.event_id ?? item.id;
+    return typeof content === 'string' && content.trim() ? content : 'Untitled post';
+  }
+
+  function triggerLabel(trigger: PublishTrigger) {
+    if (trigger === 'QUEUE') return 'From queue';
+    if (trigger === 'SEND_NOW') return 'Publishing now';
+    return 'Scheduled';
   }
 
   function formatDate(value: string | null) {
@@ -54,7 +61,7 @@
 
       items = await shipyardApi.publishItems(session.token, session.ownerPubkey);
     } catch (err) {
-      setError(err, 'Failed to load scheduled items.');
+      setError(err, 'Failed to load scheduled posts.');
     } finally {
       loading = false;
     }
@@ -64,11 +71,11 @@
     saving = true;
     try {
       await shipyardApi.cancelPublishItem(session.token, itemId);
-      message = 'Publish item cancelled.';
+      message = 'Post cancelled.';
       error = '';
       await loadItems();
     } catch (err) {
-      setError(err, 'Failed to cancel publish item.');
+      setError(err, "Couldn't cancel — try again.");
     } finally {
       saving = false;
     }
@@ -78,11 +85,11 @@
     saving = true;
     try {
       await shipyardApi.retryPublishItem(session.token, itemId);
-      message = 'Publish item queued for retry.';
+      message = 'Retrying publish.';
       error = '';
       await loadItems();
     } catch (err) {
-      setError(err, 'Failed to retry publish item.');
+      setError(err, "Couldn't retry — try again.");
     } finally {
       saving = false;
     }
@@ -110,24 +117,26 @@
   <section class="notice error">{error}</section>
 {/if}
 {#if !session.token || !session.ownerPubkey}
-  <section class="notice"><a href="/settings#login">Sign in</a> before viewing scheduled posts.</section>
+  <section class="notice">
+    <button class="link-button" type="button" onclick={() => loginModal.show()}>Sign in</button>
+    to see your scheduled posts.
+  </section>
 {/if}
 
 <section class="panel stack">
   <div class="card-form">
     <div class="section-header">
-      <h2>Active Publish Items</h2>
-      <span class="muted-text">{compactPubkey(session.ownerPubkey)}</span>
+      <h2>Upcoming</h2>
     </div>
 
     <div class="rows">
       {#if loading}
         <article class="row">
-          <p>Loading publish items...</p>
+          <p>Loading...</p>
         </article>
       {:else if !activeItems.length}
         <article class="row">
-          <p>No active scheduled items.</p>
+          <p>Nothing scheduled.</p>
         </article>
       {:else}
         {#each activeItems as item}
@@ -135,9 +144,9 @@
             <p>
               <strong>{eventSummary(item)}</strong>
               <span>
-                {item.trigger} by {compactPubkey(item.created_by_pubkey)}
+                {triggerLabel(item.trigger)}
                 {#if item.failure_message}
-                  - {item.failure_message}
+                  · {item.failure_message}
                 {/if}
               </span>
             </p>

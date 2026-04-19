@@ -1,22 +1,11 @@
 import { browser } from '$app/environment';
-import { createNDK } from '@nostr-dev-kit/svelte';
-import { LocalStorage } from '@nostr-dev-kit/sessions';
+import NDK from '@nostr-dev-kit/ndk';
 import { APP_NAME, DEFAULT_RELAYS } from '$lib/ndk/config';
 
-export const ndk = createNDK({
+export const ndk = new NDK({
   explicitRelayUrls: DEFAULT_RELAYS,
   clientName: APP_NAME,
-  enableOutboxModel: false,
-  session: {
-    storage: new LocalStorage('shipyard:sessions'),
-    autoSave: true,
-    fetches: {
-      follows: false,
-      mutes: false,
-      relayList: true,
-      wallet: false
-    }
-  }
+  enableOutboxModel: false
 });
 
 let connectPromise: Promise<void> | null = null;

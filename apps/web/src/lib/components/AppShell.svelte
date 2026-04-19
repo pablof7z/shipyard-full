@@ -9,6 +9,7 @@
   } from '$lib/api/session';
   import { ndk, ensureClientNdk } from '$lib/ndk/client';
   import { User } from '$lib/components/ui/user';
+  import { loginModal } from '$lib/components/onboarding/loginState.svelte';
 
   let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -62,30 +63,23 @@
       </nav>
 
       <div class="account-pill" aria-label="Active account">
-        {#if session.ownerPubkey}
+        {#if session.token && session.ownerPubkey}
           <User.Root {ndk} pubkey={session.ownerPubkey} class="account-profile">
             <User.Avatar class="avatar" alt="Active account avatar" />
             <span class="account-copy">
               <strong>
                 <User.Name fallback={compactPubkey(session.ownerPubkey)} />
               </strong>
-              <small>{session.token ? 'Session configured' : 'No session'}</small>
-              {#if !session.token}
-                <a class="account-signin" href="/settings#login">Sign in</a>
-              {/if}
             </span>
           </User.Root>
         {:else}
-          <span class="avatar" aria-hidden="true">-</span>
-          <span class="account-copy">
-            <strong>
-              {compactPubkey(session.ownerPubkey)}
-            </strong>
-            <small>{session.token ? 'Session configured' : 'No session'}</small>
-            {#if !session.token}
-              <a class="account-signin" href="/settings#login">Sign in</a>
-            {/if}
-          </span>
+          <button
+            class="account-signin primary-action"
+            type="button"
+            onclick={() => loginModal.show()}
+          >
+            Sign in
+          </button>
         {/if}
       </div>
     </aside>

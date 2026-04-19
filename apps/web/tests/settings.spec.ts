@@ -6,42 +6,15 @@ import {
   MOCK_PUBKEY
 } from './helpers/api-mock';
 
-test.describe('Settings page', () => {
+test.describe('Settings page — guarded route', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.clear());
   });
 
-  test('renders page title', async ({ page }) => {
+  test('redirects unauthenticated visitors to landing', async ({ page }) => {
     await page.goto('/settings');
-    await expect(page).toHaveTitle('Settings - Shipyard');
-  });
-
-  test('shows Settings heading', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
-  });
-
-  test('shows Session and Login sections', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: 'Session', level: 2 })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Login', level: 2 })).toBeVisible();
-  });
-
-  test('shows Browser Signer button', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.getByRole('button', { name: 'Browser Signer' })).toBeVisible();
-  });
-
-  test('shows session token and owner pubkey fields', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.getByPlaceholder(/UUID from/)).toBeVisible();
-    await expect(page.getByPlaceholder(/64 hex or npub/)).toBeVisible();
-  });
-
-  test('shows Relays and Delegates sections', async ({ page }) => {
-    await page.goto('/settings');
-    await expect(page.getByRole('heading', { name: 'Relays', level: 2 })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Delegates', level: 2 })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveTitle('Shipyard - Schedule your Nostr posts');
   });
 });
 
@@ -51,31 +24,27 @@ test.describe('NIP-07 login flow', () => {
     await page.addInitScript(() => localStorage.clear());
   });
 
-  test('Browser Signer button triggers login and shows success', async ({ page }) => {
+  test('browser extension login from landing enters the app', async ({ page }) => {
     await injectMockNostr(page, MOCK_PUBKEY);
     await mockAuthenticatedSession(page);
 
-    await page.goto('/settings');
-    // Wait for Svelte hydration to complete so onclick handlers are attached
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
+    await page.getByRole('link', { name: 'Sign in with Nostr' }).first().click();
+    await page.getByRole('button', { name: 'Use browser extension' }).click();
 
-    await page.getByRole('button', { name: 'Browser Signer' }).click();
-
-    await expect(page.locator('.notice.success')).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('.notice.success')).toContainText('Browser signer login accepted');
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
-  test('shows error when no NIP-07 extension is present', async ({ page }) => {
-    // No window.nostr injected — it is undefined by default in Chromium headless
-
-    await page.goto('/settings');
-    // Wait for Svelte hydration to complete so onclick handlers are attached
+  test('shows credential login when no NIP-07 extension is present', async ({ page }) => {
+    await page.goto('/');
     await page.waitForLoadState('networkidle');
+    await page.getByRole('link', { name: 'Sign in with Nostr' }).first().click();
 
-    await page.getByRole('button', { name: 'Browser Signer' }).click();
-
-    await expect(page.locator('.notice.error')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.notice.error')).toContainText('No NIP-07 signer');
+    await expect(page.getByRole('dialog', { name: 'Sign in to Shipyard' })).toBeVisible();
+    await expect(page.getByPlaceholder('Paste your key or remote signer link')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Use browser extension' })).toHaveCount(0);
   });
 });
 
@@ -91,27 +60,42 @@ test.describe('Settings — logged-in state', () => {
     );
   });
 
-  test('shows session info when token is saved', async ({ page }) => {
+  test('renders settings shell', async ({ page }) => {
     await page.goto('/settings');
-    await expect(page.locator('.meta-line').first()).toContainText('Signed in as', { timeout: 8000 });
+    await expect(page).toHaveTitle('Settings - Shipyard');
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Account', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Team', level: 2 })).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('heading', { name: 'Agents', level: 2 })).toBeVisible();
   });
 
-  test('shows relay URL field populated from API', async ({ page }) => {
+  test('shows signed-in account details', async ({ page }) => {
     await page.goto('/settings');
-    const relayField = page.getByPlaceholder('wss://relay.example.com');
-    await expect(relayField).toHaveValue('wss://relay.example.com', { timeout: 8000 });
+    await expect(page.getByText(/Signed in until/)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('button', { name: 'Sign out' })).toBeEnabled();
   });
 
-  test('shows Log out button enabled when session is active', async ({ page }) => {
+  test('shows teammate invite controls for owner accounts', async ({ page }) => {
     await page.goto('/settings');
-    await expect(page.getByRole('button', { name: 'Log out' })).toBeEnabled({ timeout: 8000 });
+    await expect(page.getByPlaceholder("Teammate's npub")).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('button', { name: 'Invite' })).toBeDisabled();
   });
 
-  test('logout clears session and shows cleared message', async ({ page }) => {
+  test('shows agent skill prompt', async ({ page }) => {
     await page.goto('/settings');
-    const logoutBtn = page.getByRole('button', { name: 'Log out' });
-    await expect(logoutBtn).toBeEnabled({ timeout: 8000 });
-    await logoutBtn.click();
-    await expect(page.locator('.notice.success')).toContainText('Session cleared', { timeout: 5000 });
+    await expect(page.getByRole('link', { name: 'View SKILL.md' })).toHaveAttribute(
+      'href',
+      '/SKILL.md'
+    );
+    await expect(page.getByLabel('Agent prompt')).toHaveValue(/\/SKILL\.md/);
+  });
+
+  test('sign out clears session and returns to landing', async ({ page }) => {
+    await page.goto('/settings');
+    const signOutButton = page.getByRole('button', { name: 'Sign out' });
+    await expect(signOutButton).toBeEnabled({ timeout: 8000 });
+    await signOutButton.click();
+    await expect(page).toHaveURL(/\/$/, { timeout: 5000 });
+    await expect(page).toHaveTitle('Shipyard - Schedule your Nostr posts');
   });
 });

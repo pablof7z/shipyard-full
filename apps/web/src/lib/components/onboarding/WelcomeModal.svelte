@@ -146,7 +146,7 @@
     margin: 0 0 6px;
     font-size: 22px;
     font-weight: 800;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 
   header p {

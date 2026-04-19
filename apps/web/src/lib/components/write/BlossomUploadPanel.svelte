@@ -1,23 +1,18 @@
 <script lang="ts">
   import {
     BlossomUploadError,
-    parseServerListJson,
     resolveBlossomServers,
     uploadBlobToBlossom
   } from '$lib/nostr/blossom';
 
   let { onInsertUrl }: { onInsertUrl: (url: string) => void } = $props();
 
-  let serverEventText = $state('');
   let directServerText = $state('');
   let manualUrl = $state('');
   let selectedFile = $state<File | null>(null);
-  let resolvedServers = $state(resolveBlossomServers());
   let uploading = $state(false);
   let message = $state('');
   let error = $state('');
-  const serverListPlaceholder =
-    '{"kind":10063,"tags":[["server","https://blossom.primal.net"]]}';
 
   function setMessage(value: string) {
     message = value;
@@ -26,7 +21,7 @@
 
   function setError(err: unknown, fallback: string) {
     if (err instanceof BlossomUploadError) {
-      error = `${err.kind}: ${err.message}`;
+      error = err.message;
     } else {
       error = err instanceof Error ? err.message : fallback;
     }
@@ -40,20 +35,6 @@
       .filter(Boolean);
   }
 
-  function serverListEvents() {
-    return parseServerListJson(serverEventText);
-  }
-
-  function resolveServers() {
-    try {
-      const direct = directServers();
-      resolvedServers = direct.length ? direct : resolveBlossomServers(serverListEvents());
-      setMessage('Blossom servers resolved.');
-    } catch (err) {
-      setError(err, 'Failed to parse Blossom server list.');
-    }
-  }
-
   function pickFile(event: Event) {
     selectedFile = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
   }
@@ -65,7 +46,7 @@
 
     onInsertUrl(manualUrl.trim());
     manualUrl = '';
-    setMessage('Blossom URL inserted.');
+    setMessage('Image added.');
   }
 
   async function uploadSelectedFile() {
@@ -80,14 +61,12 @@
       const result = await uploadBlobToBlossom({
         blob: selectedFile,
         signer: window.nostr,
-        servers: directServers(),
-        serverListEvents: serverListEvents()
+        servers: directServers()
       });
       onInsertUrl(result.descriptor.url);
-      resolvedServers = [result.server];
-      setMessage('Blossom URL inserted.');
+      setMessage('Image added.');
     } catch (err) {
-      setError(err, 'Blossom upload failed.');
+      setError(err, 'Upload failed.');
     } finally {
       uploading = false;
     }
@@ -96,8 +75,7 @@
 
 <div class="card-form">
   <div class="section-header">
-    <h2>Blossom</h2>
-    <button class="secondary-action" type="button" onclick={resolveServers}>Resolve</button>
+    <h2>Media</h2>
   </div>
 
   {#if message}
@@ -106,33 +84,6 @@
   {#if error}
     <p class="meta-line error-text">{error}</p>
   {/if}
-
-  <label class="field">
-    <span>Kind 10063 event JSON</span>
-    <textarea
-      bind:value={serverEventText}
-      rows="5"
-      spellcheck="false"
-      placeholder={serverListPlaceholder}
-    ></textarea>
-  </label>
-
-  <label class="field">
-    <span>Server URLs</span>
-    <textarea
-      bind:value={directServerText}
-      rows="3"
-      placeholder="https://blossom.primal.net"
-    ></textarea>
-  </label>
-
-  <div class="rows compact">
-    {#each resolvedServers as server}
-      <article class="row">
-        <p>{server}</p>
-      </article>
-    {/each}
-  </div>
 
   <label class="field">
     <span>File</span>
@@ -151,9 +102,38 @@
   </div>
 
   <form class="inline-form" onsubmit={(event) => event.preventDefault()}>
-    <input bind:value={manualUrl} placeholder="https://server.example/<sha256>.jpg" />
+    <input bind:value={manualUrl} placeholder="Paste image URL" />
     <button class="secondary-action" type="button" onclick={insertManualUrl}>
-      Insert URL
+      Add URL
     </button>
   </form>
+
+  <details class="advanced-details">
+    <summary>Custom server (optional)</summary>
+    <label class="field">
+      <textarea
+        bind:value={directServerText}
+        rows="2"
+        placeholder="https://blossom.primal.net"
+      ></textarea>
+    </label>
+  </details>
 </div>
+
+<style>
+  .advanced-details {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .advanced-details summary {
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 0;
+  }
+
+  .advanced-details .field {
+    margin-top: 8px;
+  }
+</style>
