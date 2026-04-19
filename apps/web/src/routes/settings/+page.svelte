@@ -16,6 +16,7 @@
     DelegateResponse,
     SessionResponse
   } from '$lib/api/types';
+  import { signNostrEventWithNdk } from '$lib/nostr/signing';
 
   let token = $state('');
   let ownerPubkey = $state('');
@@ -137,7 +138,7 @@
       }
 
       const pubkey = await window.nostr.getPublicKey();
-      const signedEvent = await window.nostr.signEvent({
+      const signedEvent = await signNostrEventWithNdk({
         pubkey,
         created_at: Math.floor(Date.now() / 1000),
         kind: 27235,

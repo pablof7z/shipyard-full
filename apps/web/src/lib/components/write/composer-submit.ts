@@ -2,6 +2,7 @@ import { shipyardApi } from '$lib/api/client';
 import type { PublishTrigger } from '$lib/api/types';
 import { defaultRelays } from '$lib/ndk/client';
 import type { UnsignedNostrEvent } from '$lib/nostr/drafts';
+import { signNostrEventWithNdk } from '$lib/nostr/signing';
 import {
   parseTagsText,
   publishTimeFor,
@@ -92,7 +93,7 @@ function draftEvent(input: CompositionInput): UnsignedNostrEvent {
 async function signAsOwner(ownerPubkey: string, event: UnsignedNostrEvent) {
   if (!window.nostr?.getPublicKey || !window.nostr.signEvent) return null;
   const pubkey = await window.nostr.getPublicKey().catch(() => null);
-  return pubkey === ownerPubkey ? window.nostr.signEvent(event) : null;
+  return pubkey === ownerPubkey ? signNostrEventWithNdk(event) : null;
 }
 
 async function publishSignedEventToRelays(

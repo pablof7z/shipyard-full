@@ -1,5 +1,6 @@
 import { defaultBlossomServer } from '$lib/ndk/client';
 import type { BrowserNostrSigner, SignedNostrEvent, UnsignedNostrEvent } from './drafts';
+import { signNostrEventWithNdk } from './signing';
 
 export const blossomServerListKind = 10063;
 export const blossomAuthKind = 24242;
@@ -119,7 +120,7 @@ export async function signUploadAuthorization(input: {
     content: 'Upload Blob'
   };
 
-  return input.signer.signEvent(event).catch(() => {
+  return signNostrEventWithNdk(event).catch(() => {
     throw new BlossomUploadError('signer', 'Browser signer rejected upload authorization.');
   });
 }

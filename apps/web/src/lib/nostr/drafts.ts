@@ -1,3 +1,5 @@
+import { signNostrEventWithNdk } from './signing';
+
 export const draftWrapKind = 31234;
 export const defaultDraftExpirationDays = 90;
 
@@ -18,7 +20,9 @@ export type SignedNostrEvent = UnsignedNostrEvent & {
 
 export type BrowserNostrSigner = {
   getPublicKey?: () => Promise<string>;
-  signEvent?: (event: UnsignedNostrEvent) => Promise<SignedNostrEvent>;
+  signEvent?: (
+    event: UnsignedNostrEvent
+  ) => Promise<Pick<SignedNostrEvent, 'sig'> & Partial<SignedNostrEvent>>;
   nip44?: {
     encrypt?: (pubkey: string, plaintext: string) => Promise<string>;
     decrypt?: (pubkey: string, ciphertext: string) => Promise<string>;
@@ -119,7 +123,7 @@ export async function createSignedDraftWrap(input: {
     JSON.stringify(draft)
   );
 
-  return input.signer.signEvent(
+  return signNostrEventWithNdk(
     createDraftWrapPayload({
       pubkey: input.pubkey,
       draftId: input.draftId,
@@ -139,7 +143,7 @@ export async function createSignedBlankDraftWrap(input: {
 }): Promise<SignedNostrEvent> {
   assertSigningSigner(input.signer);
 
-  return input.signer.signEvent(
+  return signNostrEventWithNdk(
     createBlankDraftWrapPayload({
       pubkey: input.pubkey,
       draftId: input.draftId,
