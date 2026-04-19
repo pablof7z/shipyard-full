@@ -74,7 +74,6 @@ enum Command {
         command: proposals::ProposalsCommand,
     },
     Schedule(publish::ScheduleArgs),
-    SendNow(publish::SendNowArgs),
     Posts {
         #[command(subcommand)]
         command: publish::PostsCommand,
@@ -118,7 +117,6 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<Value> {
         Command::Propose(args) => publish::create_proposal(&client, args).await,
         Command::Proposals { command } => proposals::run(&client, command).await,
         Command::Schedule(args) => publish::schedule(&client, args).await,
-        Command::SendNow(args) => publish::send_now(&client, args).await,
         Command::Posts { command } => publish::run_posts(&client, command).await,
         Command::Dvm { command } => dvm::run(&client, command).await,
         Command::Media { command } => media::run(command).await,

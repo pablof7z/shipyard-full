@@ -141,8 +141,8 @@ shipyard proposals delete <id> --json
 shipyard proposals reject <id> --reason "Not a fit" --json
 shipyard proposals sign <id> --event-json ./signed-event.json --json
 shipyard proposals batch-sign --file ./batch-sign.json --json
-shipyard schedule --event-json ./signed-event.json --time 2026-04-18T10:00:00Z --json
-shipyard send-now --event-json ./signed-event.json --json
+shipyard schedule --event-json ./signed-event.json --json
+shipyard schedule --event-json ./signed-event.json --queue <queue-id> --json
 shipyard posts list --owner-pubkey <owner> --json
 shipyard posts show <id> --owner-pubkey <owner> --json
 shipyard posts cancel <id> --json

@@ -132,17 +132,16 @@ Agent use case:
 ### Schedule
 
 ```bash
-shipyard schedule --content <text> --time <iso>
-shipyard schedule --file <path> --time <iso>
-shipyard schedule --event-json <path> --time <iso>
+shipyard schedule --event-json <path>
 shipyard schedule --event-json <path> --queue <queue-id>
-shipyard send-now --content <text>
 ```
 
 Rules:
 
-- Requires signer for active owner.
-- If no signer for active owner, command should suggest `shipyard propose --to`.
+- Requires an owner-signed event JSON file.
+- For time scheduling, the publish time is the signed event's `created_at`.
+- For queue scheduling, the signed event's `created_at` must match the assigned queue slot.
+- If no signer for active owner is available, use `shipyard propose --to`.
 
 ### Queues
 

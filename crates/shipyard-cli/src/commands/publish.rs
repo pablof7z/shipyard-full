@@ -28,15 +28,7 @@ pub(crate) struct ScheduleArgs {
     #[arg(long)]
     event_json: PathBuf,
     #[arg(long)]
-    time: Option<DateTime<Utc>>,
-    #[arg(long)]
     queue: Option<Uuid>,
-}
-
-#[derive(Debug, Parser)]
-pub(crate) struct SendNowArgs {
-    #[arg(long)]
-    event_json: PathBuf,
 }
 
 #[derive(Debug, Subcommand)]
@@ -58,7 +50,7 @@ pub(crate) async fn create_proposal(
         (Some(_), Some(_)) => bail!("use either --content or --file, not both"),
         (None, None) => bail!("proposal requires --content or --file"),
     };
-    let trigger = trigger_parts(args.time, args.queue, false)?;
+    let trigger = trigger_parts(args.time, args.queue)?;
     let created_at = trigger
         .publish_time
         .map_or_else(|| Utc::now().timestamp(), |time| time.timestamp());
@@ -82,33 +74,17 @@ pub(crate) async fn create_proposal(
 }
 
 pub(crate) async fn schedule(client: &ApiClient, args: ScheduleArgs) -> anyhow::Result<Value> {
-    let trigger = trigger_parts(args.time, args.queue, false)?;
+    let signed_event = super::read_json_file(args.event_json)?;
+    let trigger = schedule_trigger_parts(&signed_event, args.queue)?;
     client
         .request(
             Method::POST,
             "/v1/publish-items/schedule",
             Some(serde_json::json!({
-                "signed_event": super::read_json_file(args.event_json)?,
+                "signed_event": signed_event,
                 "trigger": trigger.name,
                 "publish_time": trigger.publish_time,
                 "queue_id": trigger.queue_id
-            })),
-            true,
-            false,
-        )
-        .await
-}
-
-pub(crate) async fn send_now(client: &ApiClient, args: SendNowArgs) -> anyhow::Result<Value> {
-    client
-        .request(
-            Method::POST,
-            "/v1/publish-items/send-now",
-            Some(serde_json::json!({
-                "signed_event": super::read_json_file(args.event_json)?,
-                "trigger": "SEND_NOW",
-                "publish_time": null,
-                "queue_id": null
             })),
             true,
             false,
@@ -164,18 +140,7 @@ pub(crate) async fn run_posts(client: &ApiClient, command: PostsCommand) -> anyh
     }
 }
 
-fn trigger_parts(
-    time: Option<DateTime<Utc>>,
-    queue: Option<Uuid>,
-    send_now: bool,
-) -> anyhow::Result<TriggerParts> {
-    if send_now {
-        return Ok(TriggerParts {
-            name: "SEND_NOW",
-            publish_time: None,
-            queue_id: None,
-        });
-    }
+fn trigger_parts(time: Option<DateTime<Utc>>, queue: Option<Uuid>) -> anyhow::Result<TriggerParts> {
     match (time, queue) {
         (Some(time), None) => Ok(TriggerParts {
             name: "TIME",
@@ -190,6 +155,32 @@ fn trigger_parts(
         (Some(_), Some(_)) => bail!("use either --time or --queue, not both"),
         (None, None) => bail!("provide --time or --queue"),
     }
+}
+
+fn schedule_trigger_parts(
+    signed_event: &Value,
+    queue: Option<Uuid>,
+) -> anyhow::Result<TriggerParts> {
+    if let Some(queue) = queue {
+        return Ok(TriggerParts {
+            name: "QUEUE",
+            publish_time: None,
+            queue_id: Some(queue),
+        });
+    }
+
+    let created_at = signed_event
+        .get("created_at")
+        .and_then(Value::as_i64)
+        .context("signed event must include numeric created_at")?;
+    let publish_time = DateTime::<Utc>::from_timestamp(created_at, 0)
+        .context("signed event created_at is outside the supported timestamp range")?;
+
+    Ok(TriggerParts {
+        name: "TIME",
+        publish_time: Some(publish_time),
+        queue_id: None,
+    })
 }
 
 #[derive(Debug)]

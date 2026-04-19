@@ -104,7 +104,7 @@ Deliverables:
 - Queue create/list/update/archive endpoints.
 - Queue next-slot endpoint using shared Rust queue logic.
 - Proposal create/list/edit/delete/reject/sign/batch-sign endpoints.
-- Publish item list/schedule/send-now/cancel/retry endpoints.
+- Publish item list/schedule/cancel/retry endpoints.
 - Relay get/update endpoints.
 - DVM request list endpoint.
 - Device token list/register/update/delete endpoints.
@@ -208,13 +208,14 @@ Deliverables:
 - Queue list/create/update/archive/next-slot.
 - Relay list/set/add/remove.
 - Proposal create/list/delete/reject/sign/batch-sign.
-- Schedule, send-now, post list/show/cancel/retry.
+- Schedule signed events using the signed event's `created_at`, plus post list/show/cancel/retry.
 - DVM request listing.
 - `SKILL.md` that instructs agents to use their own pubkey and propose to human owners.
 
 Success criteria:
 
 - CLI commands map to the same Rust API used by web/mobile.
+- `shipyard schedule --event-json` derives publish time from the signed event's `created_at`.
 - CLI exits non-zero on failure.
 - `--json` returns stable machine-readable output.
 - Skill safety rules prohibit requesting or storing a human private key.

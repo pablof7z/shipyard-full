@@ -158,16 +158,17 @@ Scheduling means storing a signed event for future publishing.
 
 User-visible scheduling modes:
 
-- **Send now**: create a publish job due immediately.
-- **Time**: publish at a selected time.
-- **Queue**: assign the event to the next available slot in a named queue.
+- **Time**: store an owner-signed event and publish it at the event's `created_at`.
+- **Queue**: assign an event to the next available slot in a named queue, then require the owner to sign the final event with `created_at` equal to that slot.
 
 Rules:
 
 - A scheduled item must eventually contain a valid signed Nostr event with the final `created_at`.
+- For direct time scheduling, `publish_time` is derived from the signed event's `created_at`; clients must not send a separate scheduling timestamp that can diverge from the event.
 - If an event has no valid owner signature, it cannot publish.
 - Queue scheduling may change `created_at` to match the assigned slot.
 - Any `created_at` change invalidates an existing signature and moves the item back to signature workflow.
+- Publishing immediately is not a Shipyard scheduling workflow. A user or client that wants to publish now should publish directly to relays instead of routing through Shipyard scheduling.
 - Unpublished scheduled items can be cancelled.
 - Published items cannot be deleted from relays by Shipyard unless a future deletion feature is explicitly added.
 
@@ -237,7 +238,7 @@ Owner UI requirements:
 - Reject with optional internal reason.
 - Sign one proposal.
 - Batch sign selected proposals.
-- Clear warnings when signing will publish soon or immediately.
+- Clear warnings when signing will publish soon.
 
 Signing requirements:
 

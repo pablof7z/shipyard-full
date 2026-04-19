@@ -36,7 +36,6 @@ The Rust API is versioned under `/v1`.
 - `POST /v1/proposals/batch-sign`
 - `GET /v1/publish-items`
 - `POST /v1/publish-items/schedule`
-- `POST /v1/publish-items/send-now`
 - `POST /v1/publish-items/{id}/cancel`
 - `POST /v1/publish-items/{id}/retry`
 - `GET /v1/relays`
@@ -71,7 +70,6 @@ Implemented routes:
 - `POST /v1/proposals/batch-sign`
 - `GET /v1/publish-items`
 - `POST /v1/publish-items/schedule`
-- `POST /v1/publish-items/send-now`
 - `POST /v1/publish-items/{id}/cancel`
 - `POST /v1/publish-items/{id}/retry`
 - `GET /v1/relays`
@@ -79,6 +77,7 @@ Implemented routes:
 - `GET /v1/dvm/requests`
 
 Signing a proposal or scheduling a signed event stores the signed event, moves the item to `SCHEDULED`, and inserts a `publish_event` job.
+For direct signed scheduling, the publish time is derived from the signed event's `created_at`; clients must not send a separate timestamp that can diverge from the event.
 Batch signing accepts up to 50 proposal/signature pairs and returns a per-item result with either the scheduled publish item or an API error body.
 `GET /v1/dvm/requests` returns the latest 100 DVM requests for the active owner pubkey.
 

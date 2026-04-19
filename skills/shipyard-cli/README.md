@@ -131,11 +131,11 @@ shipyard proposals batch-sign --file ./batch-sign.json --json
 ### Scheduling (agent-signed events)
 
 ```bash
-# Schedule for a future time
-shipyard schedule --event-json ./signed-event.json --time 2026-04-20T14:00:00Z --json
+# Schedule for the signed event's created_at timestamp
+shipyard schedule --event-json ./signed-event.json --json
 
-# Publish immediately
-shipyard send-now --event-json ./signed-event.json --json
+# Schedule into a queue; created_at must match the assigned queue slot
+shipyard schedule --event-json ./signed-event.json --queue <queue-id> --json
 ```
 
 ### Posts
