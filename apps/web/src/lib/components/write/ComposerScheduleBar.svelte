@@ -94,6 +94,7 @@
         value={trigger}
         onchange={(event) => onTriggerChange(selectValue(event) as PublishTrigger)}
       >
+        <option value="SEND_NOW">Send now</option>
         <option value="TIME">Schedule</option>
         <option value="QUEUE">Add to queue</option>
       </select>

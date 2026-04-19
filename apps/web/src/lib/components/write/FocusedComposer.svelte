@@ -13,10 +13,7 @@
   import ComposerNoteList from './ComposerNoteList.svelte';
   import ComposerScheduleBar from './ComposerScheduleBar.svelte';
   import ComposerTopbar from './ComposerTopbar.svelte';
-  import {
-    apiErrorMessage,
-    toLocalInput
-  } from './composer-actions';
+  import { apiErrorMessage, toLocalInput } from './composer-actions';
   import {
     scheduleSignedJson as scheduleSignedJsonRequest,
     submitComposition as submitCompositionRequest
@@ -32,6 +29,7 @@
 
   let session = $state<ShipyardSession>({ token: '', ownerPubkey: '' });
   let queues = $state<Queue[]>([]);
+  let relayUrls = $state<string[]>([]);
   let notes = $state<ComposerNote[]>([createComposerNote()]);
   let activeNoteIndex = $state(0);
   let trigger = $state<PublishTrigger>('TIME');
@@ -50,7 +48,9 @@
   const activeQueues = $derived(queues.filter((queue) => !queue.archived_at));
   const content = $derived(contentFromNotes(notes));
   const activeCharCount = $derived(notes[activeNoteIndex]?.content.length ?? 0);
-  const submitLabel = $derived(trigger === 'QUEUE' ? 'Add to Queue' : 'Schedule');
+  const submitLabel = $derived(
+    trigger === 'SEND_NOW' ? 'Send Now' : trigger === 'QUEUE' ? 'Add to Queue' : 'Schedule'
+  );
 
   function setMessage(value: string) {
     message = value;
@@ -65,21 +65,32 @@
   async function submitComposition() {
     saving = true;
     try {
-      if (!session.token || !session.ownerPubkey) {
+      if (trigger !== 'SEND_NOW' && (!session.token || !session.ownerPubkey)) {
         throw new Error('Configure a session and active owner before publishing.');
       }
       if (!content.trim()) return;
+      const ownerPubkey = session.ownerPubkey || (await window.nostr?.getPublicKey?.()) || '';
+      if (!ownerPubkey) {
+        throw new Error('Connect a browser signer before sending now.');
+      }
 
       const result = await submitCompositionRequest({
         token: session.token,
-        ownerPubkey: session.ownerPubkey,
+        ownerPubkey,
         trigger,
         publishAt,
         queueId,
+        relayUrls,
         content,
         tagsText
       });
-      setMessage(result === 'signed' ? `${submitLabel} request saved.` : 'Proposal submitted.');
+      setMessage(
+        result === 'published'
+          ? 'Published directly to relays.'
+          : result === 'signed'
+            ? `${submitLabel} request saved.`
+            : 'Proposal submitted.'
+      );
       notes = [createComposerNote()];
       tagsText = '[]';
       activeNoteIndex = 0;
@@ -176,18 +187,26 @@
     event.preventDefault();
     saving = true;
     try {
+      if (trigger !== 'SEND_NOW' && (!session.token || !session.ownerPubkey)) {
+        throw new Error('Configure a session and active owner before publishing.');
+      }
+      const signedEvent = JSON.parse(signedEventText) as Record<string, unknown>;
+      const ownerPubkey =
+        session.ownerPubkey ||
+        (trigger === 'SEND_NOW' && typeof signedEvent.pubkey === 'string' ? signedEvent.pubkey : '');
       await scheduleSignedJsonRequest({
         token: session.token,
-        ownerPubkey: session.ownerPubkey,
+        ownerPubkey,
         trigger,
         publishAt,
         queueId,
+        relayUrls,
         content,
         tagsText,
-        signedEventText
+        signedEvent
       });
       signedEventText = '';
-      setMessage('Signed event scheduled.');
+      setMessage(trigger === 'SEND_NOW' ? 'Signed event published directly to relays.' : 'Signed event scheduled.');
     } catch (err) {
       setError(err, 'Failed to schedule signed event.');
     } finally {
@@ -199,7 +218,17 @@
     session = readShipyardSession();
     loading = true;
     try {
-      queues = session.token && session.ownerPubkey ? await shipyardApi.queues(session.token, session.ownerPubkey) : [];
+      if (session.token && session.ownerPubkey) {
+        const [queueResponse, relayResponse] = await Promise.all([
+          shipyardApi.queues(session.token, session.ownerPubkey),
+          shipyardApi.relays(session.token, session.ownerPubkey)
+        ]);
+        queues = queueResponse;
+        relayUrls = relayResponse.relay_urls;
+      } else {
+        queues = [];
+        relayUrls = [];
+      }
       queueId = queueId || activeQueues[0]?.id || '';
       refreshDrafts();
     } catch (err) {
@@ -236,7 +265,7 @@
     onSaveDraft={saveDraft}
   />
 
-  {#if !session.token || !session.ownerPubkey}
+  {#if trigger !== 'SEND_NOW' && (!session.token || !session.ownerPubkey)}
     <section class="composer-notice">Configure a session and active owner in Settings before writing.</section>
   {/if}
 

@@ -89,7 +89,7 @@
       </label>
       <form class="inner-form" onsubmit={onScheduleSignedJson}>
         <label class="field">
-          <span>Signed event JSON (uses created_at)</span>
+          <span>Signed event JSON</span>
           <textarea
             value={signedEventText}
             rows="8"
@@ -99,7 +99,7 @@
         </label>
         <div class="inline-actions">
           <button class="secondary-action" type="submit" disabled={saving || !signedEventText.trim()}>
-            Schedule signed event
+            Submit signed event
           </button>
         </div>
       </form>
