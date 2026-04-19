@@ -199,10 +199,14 @@
   :global(.avatar-lg) {
     width: 56px;
     height: 56px;
+    flex: 0 0 56px;
     border-radius: 50%;
     border: 2px solid var(--accent);
-    object-fit: cover;
     background: var(--bg-tertiary);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    position: relative;
   }
 
   :global(.account-profile) {

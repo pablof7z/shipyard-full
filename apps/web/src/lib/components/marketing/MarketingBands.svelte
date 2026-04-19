@@ -3,7 +3,7 @@
     <div class="band-number">01</div>
     <div class="band-content">
       <h2>Schedule posts</h2>
-      <p>Write a post, pick a time. Shipyard publishes it to your relays when the time comes.</p>
+      <p>Write a post, pick a time. Shipyard publishes it for you, right on schedule.</p>
     </div>
   </div>
 </section>
@@ -13,7 +13,7 @@
     <div class="band-number">02</div>
     <div class="band-content">
       <h2>Set up queues</h2>
-      <p>Create a queue with a cadence. Drop posts in and they go out on schedule.</p>
+      <p>Set how often you want to post &mdash; say three times a day. Drop notes in and Shipyard spaces them out for you.</p>
     </div>
   </div>
 </section>
@@ -22,8 +22,8 @@
   <div class="band-inner">
     <div class="band-number">03</div>
     <div class="band-content">
-      <h2>Repost on a delay</h2>
-      <p>See something good? Schedule a repost for later so followers in other timezones see it too.</p>
+      <h2>Boost older posts</h2>
+      <p>Catch a great note 8 hours too early? Schedule a repost &mdash; followers on the other side of the world will thank you.</p>
     </div>
   </div>
 </section>
@@ -33,7 +33,7 @@
     <div class="band-number">04</div>
     <div class="band-content">
       <h2>Post as a team</h2>
-      <p>Invite people to draft posts for your account. They propose, you review and sign.</p>
+      <p>Invite teammates to draft for your account. They write, you review and approve in one tap.</p>
     </div>
   </div>
 </section>

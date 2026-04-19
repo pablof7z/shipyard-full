@@ -1,14 +1,14 @@
 <section class="platforms-section">
   <div class="platforms-label">Works everywhere</div>
   <p class="platforms-sub">
-    Web app, mobile app, and a CLI if you want to script it. Same account, same queues, same
-    schedule.
+    Web, mobile, and a CLI if you want to script it. Same account, same queues, same schedule.
   </p>
   <div class="platforms-row">
     <span class="plat">Web</span>
     <span class="plat">Mobile</span>
     <span class="plat">CLI</span>
     <span class="plat">Agents</span>
+    <span class="plat">DVM</span>
   </div>
 </section>
 

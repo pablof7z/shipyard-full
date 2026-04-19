@@ -59,7 +59,7 @@
   <title>Shipyard - Schedule your Nostr posts</title>
   <meta
     name="description"
-    content="Schedule posts, set up publishing queues, repost for other timezones, and let collaborators draft for your account. Web, mobile, and CLI."
+    content="Schedule Nostr posts, run content queues, boost older notes for new timezones, and let teammates draft while you approve. Web, mobile, and CLI."
   />
 </svelte:head>
 

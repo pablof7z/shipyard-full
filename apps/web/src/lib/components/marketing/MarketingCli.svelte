@@ -2,8 +2,8 @@
   <div class="cli-inner">
     <div class="cli-label">CLI &amp; Agents</div>
     <p class="cli-desc">
-      Schedule posts, manage queues, and check status from your terminal. Works for scripts, cron
-      jobs, and AI agents.
+      Schedule posts, manage queues, and check status from your terminal. Drop it in scripts, cron
+      jobs, or hand the reins to an AI agent.
     </p>
     <div class="terminal">
       <div class="terminal-bar">
@@ -12,10 +12,10 @@
         <div class="terminal-dot"></div>
         <span class="terminal-title">shipyard</span>
       </div>
-      <pre><span class="prompt">$</span> shipyard schedule --content "Hello Nostr" --time "tomorrow 9am"
-<span class="output">Scheduled. Publishing Apr 20 at 9:00 AM.</span>
-<span class="blank"></span><span class="prompt">$</span> shipyard propose --to npub1you... --content "Draft post" --queue daily
-<span class="output">Proposed. Waiting for owner signature.</span></pre>
+      <pre><span class="prompt">$</span> shipyard schedule --content "Nostr needs more cats." --time "tomorrow 9am"
+<span class="output">Scheduled for Apr 20 at 9:00 AM.</span>
+<span class="blank"></span><span class="prompt">$</span> shipyard draft --content "Team post for review" --queue daily
+<span class="output">Drafted. Waiting for approval.</span></pre>
     </div>
   </div>
 </section>

@@ -16,7 +16,7 @@
   </div>
   <div class="splash-wordmark">Shipyard</div>
   <h1>A quiet space for loud ideas.</h1>
-  <p class="splash-sub">Write, schedule, and boost your notes.</p>
+  <p class="splash-sub">Schedule Nostr posts, run content queues, and review team drafts &mdash; all in one place.</p>
   <a href={ctaHref} class="splash-cta" onclick={onPrimaryCta}>{ctaLabel}</a>
   <div class="splash-scroll">
     <svg
