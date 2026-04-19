@@ -256,7 +256,6 @@
           <select bind:value={trigger}>
             <option value="TIME">Time</option>
             <option value="QUEUE">Queue</option>
-            <option value="SEND_NOW">Send now</option>
           </select>
         </label>
 

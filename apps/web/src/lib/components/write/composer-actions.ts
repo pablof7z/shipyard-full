@@ -23,6 +23,18 @@ export function publishTimeFor(trigger: PublishTrigger, publishAt: string): stri
   return trigger === 'TIME' ? new Date(publishAt).toISOString() : null;
 }
 
+export function publishTimeFromSignedEvent(
+  trigger: PublishTrigger,
+  signedEvent: Record<string, unknown>
+): string | null {
+  if (trigger !== 'TIME') return null;
+  const createdAt = signedEvent.created_at;
+  if (typeof createdAt !== 'number' || !Number.isFinite(createdAt)) {
+    throw new Error('Signed event JSON must include numeric created_at.');
+  }
+  return new Date(createdAt * 1000).toISOString();
+}
+
 export function queueFor(trigger: PublishTrigger, queueId: string): string | null {
   return trigger === 'QUEUE' ? queueId : null;
 }

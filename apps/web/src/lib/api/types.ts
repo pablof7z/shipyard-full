@@ -9,7 +9,7 @@ export type PublishState =
   | 'FAILED'
   | 'CANCELLED';
 
-export type PublishTrigger = 'SEND_NOW' | 'TIME' | 'QUEUE' | 'DVM';
+export type PublishTrigger = 'TIME' | 'QUEUE' | 'DVM';
 
 export type AccountRelationship = 'owner' | 'delegate';
 

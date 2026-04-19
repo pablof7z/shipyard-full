@@ -1,7 +1,12 @@
 import { shipyardApi } from '$lib/api/client';
 import type { PublishTrigger } from '$lib/api/types';
 import type { UnsignedNostrEvent } from '$lib/nostr/drafts';
-import { parseTagsText, publishTimeFor, queueFor } from './composer-actions';
+import {
+  parseTagsText,
+  publishTimeFor,
+  publishTimeFromSignedEvent,
+  queueFor
+} from './composer-actions';
 
 type CompositionInput = {
   token: string;
@@ -18,16 +23,12 @@ export async function submitComposition(input: CompositionInput): Promise<'signe
   const signed = await signAsOwner(input.ownerPubkey, unsigned);
 
   if (signed) {
-    if (input.trigger === 'SEND_NOW') {
-      await shipyardApi.sendNow(input.token, input.ownerPubkey, signed);
-    } else {
-      await shipyardApi.scheduleSignedEvent(input.token, input.ownerPubkey, {
-        signed_event: signed,
-        trigger: input.trigger,
-        publish_time: publishTimeFor(input.trigger, input.publishAt),
-        queue_id: queueFor(input.trigger, input.queueId)
-      });
-    }
+    await shipyardApi.scheduleSignedEvent(input.token, input.ownerPubkey, {
+      signed_event: signed,
+      trigger: input.trigger,
+      publish_time: publishTimeFromSignedEvent(input.trigger, signed),
+      queue_id: queueFor(input.trigger, input.queueId)
+    });
     return 'signed';
   }
 
@@ -43,15 +44,10 @@ export async function submitComposition(input: CompositionInput): Promise<'signe
 
 export async function scheduleSignedJson(input: CompositionInput & { signedEventText: string }) {
   const signedEvent = JSON.parse(input.signedEventText) as Record<string, unknown>;
-  if (input.trigger === 'SEND_NOW') {
-    await shipyardApi.sendNow(input.token, input.ownerPubkey, signedEvent);
-    return;
-  }
-
   await shipyardApi.scheduleSignedEvent(input.token, input.ownerPubkey, {
     signed_event: signedEvent,
     trigger: input.trigger,
-    publish_time: publishTimeFor(input.trigger, input.publishAt),
+    publish_time: publishTimeFromSignedEvent(input.trigger, signedEvent),
     queue_id: queueFor(input.trigger, input.queueId)
   });
 }

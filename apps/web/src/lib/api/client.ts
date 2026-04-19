@@ -152,18 +152,6 @@ export const shipyardApi = {
       ownerPubkey,
       body: input
     }),
-  sendNow: (token: string, ownerPubkey: string, signedEvent: Record<string, unknown>) =>
-    request<PublishItem>('/v1/publish-items/send-now', {
-      method: 'POST',
-      token,
-      ownerPubkey,
-      body: {
-        signed_event: signedEvent,
-        trigger: 'SEND_NOW',
-        publish_time: null,
-        queue_id: null
-      }
-    }),
   cancelPublishItem: (token: string, itemId: string) =>
     request<void>(`/v1/publish-items/${itemId}/cancel`, { method: 'POST', token }),
   retryPublishItem: (token: string, itemId: string) =>

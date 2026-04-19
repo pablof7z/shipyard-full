@@ -50,9 +50,7 @@
   const activeQueues = $derived(queues.filter((queue) => !queue.archived_at));
   const content = $derived(contentFromNotes(notes));
   const activeCharCount = $derived(notes[activeNoteIndex]?.content.length ?? 0);
-  const submitLabel = $derived(
-    trigger === 'SEND_NOW' ? 'Publish Now' : trigger === 'QUEUE' ? 'Add to Queue' : 'Schedule'
-  );
+  const submitLabel = $derived(trigger === 'QUEUE' ? 'Add to Queue' : 'Schedule');
 
   function setMessage(value: string) {
     message = value;

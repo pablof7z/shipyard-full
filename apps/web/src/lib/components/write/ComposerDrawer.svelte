@@ -89,7 +89,7 @@
       </label>
       <form class="inner-form" onsubmit={onScheduleSignedJson}>
         <label class="field">
-          <span>Signed event JSON</span>
+          <span>Signed event JSON (uses created_at)</span>
           <textarea
             value={signedEventText}
             rows="8"
