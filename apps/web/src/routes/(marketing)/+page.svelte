@@ -52,6 +52,7 @@
   });
 
   const ctaLabel = $derived(authed ? 'Open app' : 'Sign in with Nostr');
+  const ctaHref = $derived(authed ? '/write' : '#');
 </script>
 
 <svelte:head>
@@ -63,13 +64,13 @@
 </svelte:head>
 
 <div class="marketing">
-  <MarketingNav {ctaLabel} onPrimaryCta={handlePrimaryCta} onToggleTheme={toggleTheme} />
-  <MarketingHero {ctaLabel} onPrimaryCta={handlePrimaryCta} />
-  <MarketingDemo {ctaLabel} onPrimaryCta={handlePrimaryCta} />
+  <MarketingNav {ctaLabel} {ctaHref} onPrimaryCta={handlePrimaryCta} onToggleTheme={toggleTheme} />
+  <MarketingHero {ctaLabel} {ctaHref} onPrimaryCta={handlePrimaryCta} />
+  <MarketingDemo {ctaLabel} {ctaHref} onPrimaryCta={handlePrimaryCta} />
   <MarketingBands />
   <MarketingPlatforms />
   <MarketingCli />
-  <MarketingClosing {ctaLabel} onPrimaryCta={handlePrimaryCta} />
+  <MarketingClosing {ctaLabel} {ctaHref} onPrimaryCta={handlePrimaryCta} />
 </div>
 
 <style>

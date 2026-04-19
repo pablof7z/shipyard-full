@@ -1,15 +1,16 @@
 <script lang="ts">
   interface Props {
     ctaLabel: string;
+    ctaHref: string;
     onPrimaryCta: (event: MouseEvent) => void;
   }
 
-  let { ctaLabel, onPrimaryCta }: Props = $props();
+  let { ctaLabel, ctaHref, onPrimaryCta }: Props = $props();
 </script>
 
 <section class="final-cta">
   <h2>Schedule your Nostr posts.</h2>
-  <a href="/write" class="final-cta-btn" onclick={onPrimaryCta}>{ctaLabel}</a>
+  <a href={ctaHref} class="final-cta-btn" onclick={onPrimaryCta}>{ctaLabel}</a>
 </section>
 
 <footer>

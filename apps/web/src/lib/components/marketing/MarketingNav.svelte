@@ -1,11 +1,12 @@
 <script lang="ts">
   interface Props {
     ctaLabel: string;
+    ctaHref: string;
     onPrimaryCta: (event: MouseEvent) => void;
     onToggleTheme: () => void;
   }
 
-  let { ctaLabel, onPrimaryCta, onToggleTheme }: Props = $props();
+  let { ctaLabel, ctaHref, onPrimaryCta, onToggleTheme }: Props = $props();
 </script>
 
 <nav>
@@ -45,7 +46,7 @@
         />
       </svg>
     </button>
-    <a href="/write" class="nav-cta" onclick={onPrimaryCta}>{ctaLabel}</a>
+    <a href={ctaHref} class="nav-cta" onclick={onPrimaryCta}>{ctaLabel}</a>
   </div>
 </nav>
 

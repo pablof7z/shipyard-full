@@ -6,10 +6,11 @@
 
   interface Props {
     ctaLabel: string;
+    ctaHref: string;
     onPrimaryCta: (event: MouseEvent) => void;
   }
 
-  let { ctaLabel, onPrimaryCta }: Props = $props();
+  let { ctaLabel, ctaHref, onPrimaryCta }: Props = $props();
 
   let mockBrowser: HTMLElement | undefined = $state();
   let composerBody: HTMLElement | undefined = $state();
@@ -111,7 +112,7 @@
     </div>
   </div>
   <div class="demo-cta-row" bind:this={demoCta}>
-    <a href="/write" class="demo-cta" onclick={onPrimaryCta}>{ctaLabel}</a>
+    <a href={ctaHref} class="demo-cta" onclick={onPrimaryCta}>{ctaLabel}</a>
     <span class="demo-tagline">Simple scheduling for Nostr.</span>
   </div>
 </section>

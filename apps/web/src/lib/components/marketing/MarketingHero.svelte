@@ -1,10 +1,11 @@
 <script lang="ts">
   interface Props {
     ctaLabel: string;
+    ctaHref: string;
     onPrimaryCta: (event: MouseEvent) => void;
   }
 
-  let { ctaLabel, onPrimaryCta }: Props = $props();
+  let { ctaLabel, ctaHref, onPrimaryCta }: Props = $props();
 </script>
 
 <section class="splash">
@@ -16,7 +17,7 @@
   <div class="splash-wordmark">Shipyard</div>
   <h1>A quiet space for loud ideas.</h1>
   <p class="splash-sub">Write, schedule, and boost your notes.</p>
-  <a href="/write" class="splash-cta" onclick={onPrimaryCta}>{ctaLabel}</a>
+  <a href={ctaHref} class="splash-cta" onclick={onPrimaryCta}>{ctaLabel}</a>
   <div class="splash-scroll">
     <svg
       viewBox="0 0 24 24"

@@ -21,6 +21,9 @@ test.describe('Landing page — unauthenticated', () => {
 
   test('opens login modal from primary CTA', async ({ page }) => {
     await page.goto('/');
+    // Vite dev loads components via dynamic imports after the load event;
+    // wait for networkidle to ensure Svelte has fully hydrated before clicking.
+    await page.waitForLoadState('networkidle');
     await page.getByRole('link', { name: 'Sign in with Nostr' }).first().click();
     await expect(page.getByRole('dialog', { name: 'Sign in to Shipyard' })).toBeVisible();
   });
