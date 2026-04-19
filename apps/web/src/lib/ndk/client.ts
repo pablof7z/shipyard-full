@@ -1,48 +1,37 @@
-import NDK from '@nostr-dev-kit/ndk';
+import { browser } from '$app/environment';
+import { createNDK } from '@nostr-dev-kit/svelte';
+import { LocalStorage } from '@nostr-dev-kit/sessions';
+import { APP_NAME, DEFAULT_RELAYS } from '$lib/ndk/config';
 
-export const defaultRelays = ['wss://relay.damus.io', 'wss://relay.primal.net'];
-
-export const defaultBlossomServer = 'https://blossom.primal.net';
-
-export type NdkSessionState = {
-  userPubkey: string | null;
-  activeOwnerPubkey: string | null;
-  relays: string[];
-};
-
-export function createInitialSession(): NdkSessionState {
-  return {
-    userPubkey: null,
-    activeOwnerPubkey: null,
-    relays: defaultRelays
-  };
-}
-
-// Lazy singleton — created once on first access, only in the browser.
-let _ndk: NDK | null = null;
-
-/**
- * Returns the shared NDK instance, creating it on first call.
- * Only call from browser context (inside onMount or event handlers).
- */
-export function getNdk(): NDK {
-  if (!_ndk) {
-    _ndk = new NDK({
-      explicitRelayUrls: defaultRelays,
-      autoConnectUserRelays: false,
-      enableOutboxModel: false
-    });
+export const ndk = createNDK({
+  explicitRelayUrls: DEFAULT_RELAYS,
+  clientName: APP_NAME,
+  enableOutboxModel: false,
+  session: {
+    storage: new LocalStorage('shipyard:sessions'),
+    autoSave: true,
+    fetches: {
+      follows: false,
+      mutes: false,
+      relayList: true,
+      wallet: false
+    }
   }
-  return _ndk;
-}
+});
 
-/**
- * Connect the NDK instance to its configured relays.
- * Safe to call multiple times — no-ops after first connection.
- */
-export async function connectNdk(): Promise<void> {
-  const ndk = getNdk();
-  await ndk.connect();
-}
+let connectPromise: Promise<void> | null = null;
 
-export type { default as NDK } from '@nostr-dev-kit/ndk';
+export function ensureClientNdk(): Promise<void> {
+  if (!browser) return Promise.resolve();
+  if (!connectPromise) {
+    connectPromise = ndk
+      .connect()
+      .then(() => undefined)
+      .catch((error) => {
+        connectPromise = null;
+        throw error;
+      });
+  }
+
+  return connectPromise;
+}

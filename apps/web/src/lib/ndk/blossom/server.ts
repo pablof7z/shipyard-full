@@ -1,10 +1,10 @@
 import type NDK from '@nostr-dev-kit/ndk';
 import { NDKBlossomList, type NDKKind } from '@nostr-dev-kit/ndk';
-import { defaultBlossomServer } from '../client';
+import { DEFAULT_BLOSSOM_SERVER } from '../config';
 
 /**
  * Resolves the Blossom server list for a user from kind 10063.
- * Falls back to defaultBlossomServer if no list is found.
+ * Falls back to DEFAULT_BLOSSOM_SERVER if no list is found.
  */
 export async function resolveBlossomServers(ndk: NDK, pubkey: string): Promise<string[]> {
   try {
@@ -24,7 +24,7 @@ export async function resolveBlossomServers(ndk: NDK, pubkey: string): Promise<s
   } catch {
     // fall through to default
   }
-  return [defaultBlossomServer];
+  return [DEFAULT_BLOSSOM_SERVER];
 }
 
 /**

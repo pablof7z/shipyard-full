@@ -7,9 +7,8 @@
     sessionUpdatedEvent,
     type ShipyardSession
   } from '$lib/api/session';
-  import { connectNdk, getNdk } from '$lib/ndk/client';
+  import { ndk, ensureClientNdk } from '$lib/ndk/client';
   import { User } from '$lib/components/ui/user';
-  import type NDK from '@nostr-dev-kit/ndk';
 
   let { children }: { children: import('svelte').Snippet } = $props();
 
@@ -19,13 +18,12 @@
     ['Drafts', '/drafts'],
     ['Scheduled', '/scheduled'],
     ['Queues', '/queues'],
-    ['Proposals', '/proposals'],
+    ['Review', '/proposals'],
     ['Published', '/published'],
     ['Settings', '/settings']
   ];
 
   let session = $state<ShipyardSession>({ token: '', ownerPubkey: '' });
-  let ndk = $state<NDK | null>(null);
   const isComposer = $derived(page.url.pathname === '/write');
 
   function refreshSession() {
@@ -37,8 +35,7 @@
   }
 
   onMount(() => {
-    ndk = getNdk();
-    connectNdk().catch(() => {
+    void ensureClientNdk().catch(() => {
       // Profile metadata is a progressive enhancement; keep the shell usable offline.
     });
     refreshSession();
@@ -65,7 +62,7 @@
       </nav>
 
       <div class="account-pill" aria-label="Active account">
-        {#if ndk && session.ownerPubkey}
+        {#if session.ownerPubkey}
           <User.Root {ndk} pubkey={session.ownerPubkey} class="account-profile">
             <User.Avatar class="avatar" alt="Active account avatar" />
             <span class="account-copy">

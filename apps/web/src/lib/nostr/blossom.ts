@@ -1,4 +1,4 @@
-import { defaultBlossomServer } from '$lib/ndk/client';
+import { DEFAULT_BLOSSOM_SERVER } from '$lib/ndk/config';
 import type { BrowserNostrSigner, SignedNostrEvent, UnsignedNostrEvent } from './drafts';
 import { signNostrEventWithNdk } from './signing';
 
@@ -45,7 +45,7 @@ export type BlossomUploadResult = {
 
 export function resolveBlossomServers(
   events: BlossomServerListEvent[] = [],
-  fallbackServer = defaultBlossomServer
+  fallbackServer = DEFAULT_BLOSSOM_SERVER
 ): string[] {
   const servers = events
     .filter((event) => event.kind === blossomServerListKind)
@@ -141,7 +141,7 @@ function selectServers(input: BlossomUploadInput): string[] {
     return [...new Set(directServers)];
   }
 
-  return resolveBlossomServers(input.serverListEvents, input.fallbackServer ?? defaultBlossomServer);
+  return resolveBlossomServers(input.serverListEvents, input.fallbackServer ?? DEFAULT_BLOSSOM_SERVER);
 }
 
 async function putBlob(

@@ -1,6 +1,6 @@
 import { shipyardApi } from '$lib/api/client';
 import type { PublishTrigger } from '$lib/api/types';
-import { defaultRelays } from '$lib/ndk/client';
+import { DEFAULT_RELAYS } from '$lib/ndk/config';
 import type { UnsignedNostrEvent } from '$lib/nostr/drafts';
 import { signNostrEventWithNdk } from '$lib/nostr/signing';
 import {
@@ -105,7 +105,7 @@ async function publishSignedEventToRelays(
     throw new Error('Signed event JSON must include id.');
   }
 
-  const targets = relayUrls.length ? relayUrls : defaultRelays;
+  const targets = relayUrls.length ? relayUrls : DEFAULT_RELAYS;
   const results = await Promise.allSettled(
     targets.map((relayUrl) => publishToRelay(relayUrl, signedEvent, eventId))
   );

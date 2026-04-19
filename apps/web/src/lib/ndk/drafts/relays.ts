@@ -1,10 +1,10 @@
 import type NDK from '@nostr-dev-kit/ndk';
 import { type NDKKind, NDKRelaySet } from '@nostr-dev-kit/ndk';
-import { defaultRelays } from '../client';
+import { DEFAULT_RELAYS } from '../config';
 
 /**
  * Resolves private content relay URLs from kind 10013.
- * Falls back to defaultRelays if none are configured.
+ * Falls back to DEFAULT_RELAYS if none are configured.
  */
 export async function resolvePrivateRelays(ndk: NDK, pubkey: string): Promise<string[]> {
   try {
@@ -27,7 +27,7 @@ export async function resolvePrivateRelays(ndk: NDK, pubkey: string): Promise<st
     // fall through to default
   }
 
-  return [...defaultRelays];
+  return [...DEFAULT_RELAYS];
 }
 
 /**

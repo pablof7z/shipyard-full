@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getNdk, connectNdk } from '$lib/ndk/client';
+  import { ndk, ensureClientNdk } from '$lib/ndk/client';
   import { loadDrafts, deleteDraft } from '$lib/ndk/drafts';
   import {
     draftsState,
@@ -10,6 +10,7 @@
     setDraftError
   } from '$lib/features/drafts/state.svelte';
   import { readShipyardSession } from '$lib/api/session';
+  import { loginModal } from '$lib/components/onboarding/loginState.svelte';
 
   let session = $state(readShipyardSession());
 
@@ -34,8 +35,7 @@
     setLoading(true);
     setDraftError('');
     try {
-      await connectNdk();
-      const ndk = getNdk();
+      await ensureClientNdk();
       const entries = await loadDrafts(ndk, session.ownerPubkey);
       setDraftList(entries);
     } catch (err) {
@@ -50,7 +50,6 @@
     setLoading(true);
     setDraftError('');
     try {
-      const ndk = getNdk();
       await deleteDraft(ndk, id);
       removeDraftFromList(id);
     } catch (err) {
@@ -82,7 +81,10 @@
 {/if}
 
 {#if !session.ownerPubkey}
-  <section class="notice"><a href="/settings#login">Sign in</a> to manage drafts.</section>
+  <section class="notice">
+    <button class="link-button" type="button" onclick={() => loginModal.show()}>Sign in</button>
+    to manage drafts.
+  </section>
 {:else if draftsState.isLoading}
   <section class="notice">Loading drafts…</section>
 {:else if draftsState.draftList.length === 0}

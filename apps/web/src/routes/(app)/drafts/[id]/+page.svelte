@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { getNdk, connectNdk } from '$lib/ndk/client';
+  import { ndk, ensureClientNdk } from '$lib/ndk/client';
   import { loadDraft, saveDraft, deleteDraft } from '$lib/ndk/drafts';
   import {
     draftsState,
@@ -13,12 +13,13 @@
     setDraftError
   } from '$lib/features/drafts/state.svelte';
   import { readShipyardSession } from '$lib/api/session';
+  import { loginModal } from '$lib/components/onboarding/loginState.svelte';
 
   const draftId = $derived(page.params.id ?? '');
 
   let session = $state(readShipyardSession());
   let content = $state('');
-  let tagsText = $state('[]');
+  let tags = $state<string[][]>([]);
   let targetKind = $state(1);
   let message = $state('');
 
@@ -27,7 +28,7 @@
     try {
       const ev = draftsState.currentDraft.inner;
       content = ev.content ?? '';
-      tagsText = JSON.stringify(ev.tags ?? []);
+      tags = ev.tags ?? [];
       targetKind = ev.kind ?? 1;
     } catch {
       content = '';
@@ -39,8 +40,7 @@
     setLoading(true);
     setDraftError('');
     try {
-      await connectNdk();
-      const ndk = getNdk();
+      await ensureClientNdk();
       const entry = await loadDraft(ndk, session.ownerPubkey, draftId);
       if (entry) {
         openDraft(entry);
@@ -62,14 +62,6 @@
     setDraftError('');
     message = '';
     try {
-      let tags: string[][] = [];
-      try {
-        tags = JSON.parse(tagsText) as string[][];
-      } catch {
-        tags = [];
-      }
-
-      const ndk = getNdk();
       const entry = await saveDraft(ndk, {
         id: draftId,
         targetKind,
@@ -100,7 +92,6 @@
     setLoading(true);
     setDraftError('');
     try {
-      const ndk = getNdk();
       await deleteDraft(ndk, draftId);
       closeDraft();
       await goto('/drafts');
@@ -121,11 +112,10 @@
 <header class="page-header">
   <div>
     <p class="eyebrow">Drafts</p>
-    <h1>Edit Draft</h1>
-    <small class="muted">{draftId}</small>
+    <h1>Edit draft</h1>
   </div>
   <div class="header-actions">
-    <a class="secondary-action" href="/drafts">← All Drafts</a>
+    <a class="secondary-action" href="/drafts">← All drafts</a>
     <button
       class="danger-action"
       type="button"
@@ -145,12 +135,15 @@
 {/if}
 
 {#if !session.ownerPubkey}
-  <section class="notice"><a href="/settings#login">Sign in</a> to manage drafts.</section>
+  <section class="notice">
+    <button class="link-button" type="button" onclick={() => loginModal.show()}>Sign in</button>
+    to manage drafts.
+  </section>
 {:else}
   <section class="panel">
     <form class="card-form" onsubmit={handleSave}>
       <div class="section-header">
-        <h2>Draft Content</h2>
+        <h2>Draft</h2>
         <button
           class="primary-action"
           type="submit"
@@ -161,23 +154,8 @@
       </div>
 
       <label class="field">
-        <span>Target kind</span>
-        <input
-          type="number"
-          bind:value={targetKind}
-          min="1"
-          onchange={markDirty}
-        />
-      </label>
-
-      <label class="field">
         <span>Content</span>
         <textarea bind:value={content} rows="12" oninput={markDirty}></textarea>
-      </label>
-
-      <label class="field">
-        <span>Tags JSON</span>
-        <textarea bind:value={tagsText} rows="4" spellcheck="false" oninput={markDirty}></textarea>
       </label>
     </form>
   </section>
