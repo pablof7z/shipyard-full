@@ -3,6 +3,7 @@
   import { shipyardApi } from '$lib/api/client';
   import { compactPubkey, readShipyardSession, type ShipyardSession } from '$lib/api/session';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import WelcomeModal from '$lib/components/onboarding/WelcomeModal.svelte';
   import type { ApiErrorBody, PublishItem } from '$lib/api/types';
 
   type Stat = {
@@ -140,6 +141,8 @@
     content="Shipyard publishing cockpit for Nostr queues, drafts, proposals, and scheduled posts."
   />
 </svelte:head>
+
+<WelcomeModal />
 
 <header class="page-header">
   <div>
