@@ -20,13 +20,15 @@
   }
 
   function draftTitle(entry: (typeof draftsState.draftList)[number]): string {
-    if (!entry.inner) return `Draft ${entry.id.slice(0, 8)}…`;
+    if (!entry.inner) return 'Untitled draft';
     try {
       const parsed = JSON.parse(entry.inner.content ?? '{}') as Record<string, unknown>;
       const text = (parsed['content'] as string) ?? entry.inner.content ?? '';
-      return text.slice(0, 60) || `Draft ${entry.id.slice(0, 8)}…`;
+      const trimmed = text.trim();
+      if (!trimmed) return 'Untitled draft';
+      return trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed;
     } catch {
-      return `Draft ${entry.id.slice(0, 8)}…`;
+      return 'Untitled draft';
     }
   }
 
@@ -39,7 +41,7 @@
       const entries = await loadDrafts(ndk, session.ownerPubkey);
       setDraftList(entries);
     } catch (err) {
-      setDraftError(`Failed to load drafts: ${String(err)}`);
+      setDraftError(`Couldn't load drafts: ${String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -53,7 +55,7 @@
       await deleteDraft(ndk, id);
       removeDraftFromList(id);
     } catch (err) {
-      setDraftError(`Failed to delete draft: ${String(err)}`);
+      setDraftError(`Couldn't delete draft: ${String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -86,9 +88,11 @@
     to manage drafts.
   </section>
 {:else if draftsState.isLoading}
-  <section class="notice">Loading drafts…</section>
+  <section class="notice">Loading…</section>
 {:else if draftsState.draftList.length === 0}
-  <section class="notice">No drafts found. Start writing and save a draft.</section>
+  <section class="notice">
+    No drafts yet. <a href="/write">Start writing</a> and save one.
+  </section>
 {:else}
   <section class="panel">
     <table class="data-table">

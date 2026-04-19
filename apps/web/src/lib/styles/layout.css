@@ -40,12 +40,30 @@
   padding: 7px 8px;
   border-radius: 6px;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .nav-item:hover,
 .nav-item.active {
   background: var(--sidebar-active);
   color: var(--text-primary);
+}
+
+.nav-item .nav-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nav-item.active .nav-icon {
+  color: var(--accent);
 }
 
 .account-pill {

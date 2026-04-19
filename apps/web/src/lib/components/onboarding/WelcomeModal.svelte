@@ -49,28 +49,28 @@
           <span class="num">01</span>
           <div>
             <strong>Schedule posts</strong>
-            <p>Write now, publish later. Pick any time; Shipyard posts it to your relays.</p>
+            <p>Write now, publish later. Pick any time &mdash; Shipyard posts it for you.</p>
           </div>
         </li>
         <li>
           <span class="num">02</span>
           <div>
             <strong>Set up queues</strong>
-            <p>Daily, weekly, whatever. Drop drafts in; they go out on cadence.</p>
+            <p>Daily, weekly, whatever. Drop drafts in and they go out on schedule.</p>
           </div>
         </li>
         <li>
           <span class="num">03</span>
           <div>
             <strong>Post as a team</strong>
-            <p>Invite delegates in Settings. They propose, you review and sign.</p>
+            <p>Invite teammates from Settings. They draft, you review and approve in one tap.</p>
           </div>
         </li>
         <li>
           <span class="num">04</span>
           <div>
             <strong>Let an agent post for you</strong>
-            <p>Grab an agent prompt from Settings → Agents — your AI proposes, you sign.</p>
+            <p>Grab an agent prompt from Settings &rarr; Agents. Your AI drafts, you approve.</p>
           </div>
         </li>
       </ul>
