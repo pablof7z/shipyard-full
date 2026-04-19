@@ -110,7 +110,7 @@
   <section class="notice error">{error}</section>
 {/if}
 {#if !session.token || !session.ownerPubkey}
-  <section class="notice">Configure a session and active owner in Settings before viewing scheduled posts.</section>
+  <section class="notice"><a href="/settings#login">Sign in</a> before viewing scheduled posts.</section>
 {/if}
 
 <section class="panel stack">

@@ -433,8 +433,7 @@ mod tests {
         std::env::remove_var("SHIPYARD_SESSION_STRICT_IP_BINDING");
         let enabled = std::env::var("SHIPYARD_SESSION_STRICT_IP_BINDING")
             .unwrap_or_default()
-            .to_ascii_lowercase()
-            == "true";
+            .eq_ignore_ascii_case("true");
         assert!(!enabled);
     }
 }

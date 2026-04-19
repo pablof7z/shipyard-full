@@ -53,7 +53,7 @@
   border-top: 1px solid var(--border-subtle);
   padding-top: 14px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
 }
 
@@ -68,14 +68,31 @@
   font-weight: 700;
 }
 
+.account-copy,
 .account-pill strong,
-.account-pill small {
+.account-pill small,
+.account-signin {
   display: block;
+}
+
+.account-copy {
+  min-width: 0;
 }
 
 .account-pill small {
   color: var(--text-tertiary);
   font-size: 12px;
+}
+
+.account-signin {
+  margin-top: 7px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-signin:hover {
+  color: var(--accent-hover);
 }
 
 .main {

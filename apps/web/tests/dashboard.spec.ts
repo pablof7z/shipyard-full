@@ -41,7 +41,12 @@ test.describe('Dashboard — unauthenticated', () => {
   test('shows session notice when not logged in', async ({ page }) => {
     await page.goto('/');
     const notice = page.locator('.notice').first();
-    await expect(notice).toContainText('Settings');
+    await expect(notice.getByRole('link', { name: /Sign in/ })).toHaveAttribute('href', '/settings#login');
+  });
+
+  test('shows sidebar sign in link when not logged in', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.account-pill').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/settings#login');
   });
 
   test('shows Upcoming section with no items', async ({ page }) => {

@@ -232,7 +232,7 @@
   <section class="notice error">{error}</section>
 {/if}
 {#if !session.token || !session.ownerPubkey}
-  <section class="notice">Configure a session and active owner in Settings before reviewing proposals.</section>
+  <section class="notice"><a href="/settings#login">Sign in</a> before reviewing proposals.</section>
 {/if}
 
 <section class="panel stack">

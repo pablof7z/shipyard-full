@@ -2,12 +2,14 @@ mod routes;
 
 use anyhow::Context;
 use axum::{
-    http::{header, HeaderValue, Method},
+    http::{header, HeaderName, HeaderValue, Method},
     Router,
 };
 use routes::{router, ApiState};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+const OWNER_PUBKEY_HEADER: &str = "x-shipyard-owner-pubkey";
 
 /// Parse a comma-separated list of allowed CORS origins from an env-var value.
 /// Returns an empty Vec when the input is blank.
@@ -23,6 +25,15 @@ fn parse_cors_origins(env_val: &str) -> Vec<HeaderValue> {
             }
         })
         .collect()
+}
+
+fn cors_allowed_headers() -> [HeaderName; 4] {
+    [
+        header::AUTHORIZATION,
+        header::CONTENT_TYPE,
+        header::ACCEPT,
+        HeaderName::from_static(OWNER_PUBKEY_HEADER),
+    ]
 }
 
 /// Build a [`CorsLayer`] from the `SHIPYARD_CORS_ORIGINS` environment variable.
@@ -47,7 +58,7 @@ fn build_cors_layer() -> CorsLayer {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT])
+        .allow_headers(cors_allowed_headers())
 }
 
 #[tokio::main]
@@ -113,6 +124,11 @@ mod tests {
     fn parse_cors_origins_ignores_empty_entries_from_double_comma() {
         let origins = parse_cors_origins("https://app.example.com,,https://www.example.com");
         assert_eq!(origins.len(), 2);
+    }
+
+    #[test]
+    fn cors_allowed_headers_includes_owner_pubkey_header() {
+        assert!(cors_allowed_headers().contains(&HeaderName::from_static(OWNER_PUBKEY_HEADER)));
     }
 
     #[test]

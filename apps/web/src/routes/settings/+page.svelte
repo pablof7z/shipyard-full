@@ -302,7 +302,7 @@
       </div>
     </form>
 
-    <form class="card-form" onsubmit={loginWithEvent}>
+    <form id="login" class="card-form" onsubmit={loginWithEvent}>
       <div class="section-header">
         <h2>Login</h2>
         <div class="inline-actions">

@@ -77,6 +77,15 @@
   color: var(--text-tertiary);
 }
 
+.notice a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.notice a:hover {
+  color: var(--accent-hover);
+}
+
 .panel {
   padding: 0 24px 24px;
 }

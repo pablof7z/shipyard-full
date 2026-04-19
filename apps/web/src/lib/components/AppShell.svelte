@@ -63,9 +63,12 @@
 
       <div class="account-pill" aria-label="Active account">
         <span class="avatar">{session.ownerPubkey ? session.ownerPubkey.slice(0, 1).toUpperCase() : '-'}</span>
-        <span>
+        <span class="account-copy">
           <strong>{compactPubkey(session.ownerPubkey)}</strong>
           <small>{session.token ? 'Session configured' : 'No session'}</small>
+          {#if !session.token}
+            <a class="account-signin" href="/settings#login">Sign in</a>
+          {/if}
         </span>
       </div>
     </aside>

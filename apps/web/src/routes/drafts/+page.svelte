@@ -84,7 +84,7 @@
 {/if}
 
 {#if !session.ownerPubkey}
-  <section class="notice">Configure a session in Settings to manage drafts.</section>
+  <section class="notice"><a href="/settings#login">Sign in</a> to manage drafts.</section>
 {:else if isLoading}
   <section class="notice">Loading drafts…</section>
 {:else if draftList.length === 0}

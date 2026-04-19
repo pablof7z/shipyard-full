@@ -35,7 +35,7 @@ test.describe('Proposals page — unauthenticated', () => {
 
   test('shows session notice when not logged in', async ({ page }) => {
     await page.goto('/proposals');
-    await expect(page.locator('.notice')).toContainText('Settings');
+    await expect(page.locator('.notice').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/settings#login');
   });
 
   test('shows Create Proposal form', async ({ page }) => {

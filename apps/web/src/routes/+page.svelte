@@ -153,7 +153,7 @@
   <section class="notice error">{error}</section>
 {:else if !session.token || !session.ownerPubkey}
   <section class="notice">
-    Add a session token and active owner in Settings to load account-specific publishing data.
+    <a href="/settings#login">Sign in with a browser signer</a> to load account-specific publishing data.
   </section>
 {:else if status}
   <section class="notice muted">

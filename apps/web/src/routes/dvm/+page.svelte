@@ -71,7 +71,7 @@
   <section class="notice error">{error}</section>
 {/if}
 {#if !session.token || !session.ownerPubkey}
-  <section class="notice">Configure a session and active owner in Settings before viewing DVM requests.</section>
+  <section class="notice"><a href="/settings#login">Sign in</a> before viewing DVM requests.</section>
 {/if}
 
 <section class="panel stack">

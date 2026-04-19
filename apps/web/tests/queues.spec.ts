@@ -32,7 +32,7 @@ test.describe('Queues page — unauthenticated', () => {
 
   test('shows session notice when not logged in', async ({ page }) => {
     await page.goto('/queues');
-    await expect(page.locator('.notice')).toContainText('Settings');
+    await expect(page.locator('.notice').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/settings#login');
   });
 
   test('shows Create Queue form', async ({ page }) => {
