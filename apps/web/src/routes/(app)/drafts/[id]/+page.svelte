@@ -5,16 +5,13 @@
   import { getNdk, connectNdk } from '$lib/ndk/client';
   import { loadDraft, saveDraft, deleteDraft } from '$lib/ndk/drafts';
   import {
-    currentDraft,
+    draftsState,
     openDraft,
     closeDraft,
     markDirty,
-    isDirty,
-    isLoading,
     setLoading,
-    draftError,
     setDraftError
-  } from '$lib/features/drafts/state';
+  } from '$lib/features/drafts/state.svelte';
   import { readShipyardSession } from '$lib/api/session';
 
   const draftId = $derived(page.params.id ?? '');
@@ -26,9 +23,9 @@
   let message = $state('');
 
   function loadContentFromDraft() {
-    if (!currentDraft?.inner) return;
+    if (!draftsState.currentDraft?.inner) return;
     try {
-      const ev = currentDraft.inner;
+      const ev = draftsState.currentDraft.inner;
       content = ev.content ?? '';
       tagsText = JSON.stringify(ev.tags ?? []);
       targetKind = ev.kind ?? 1;
@@ -133,15 +130,15 @@
       class="danger-action"
       type="button"
       onclick={handleDelete}
-      disabled={isLoading}
+      disabled={draftsState.isLoading}
     >
       Delete
     </button>
   </div>
 </header>
 
-{#if draftError}
-  <section class="notice error">{draftError}</section>
+{#if draftsState.draftError}
+  <section class="notice error">{draftsState.draftError}</section>
 {/if}
 {#if message}
   <section class="notice success">{message}</section>
@@ -157,9 +154,9 @@
         <button
           class="primary-action"
           type="submit"
-          disabled={isLoading}
+          disabled={draftsState.isLoading}
         >
-          {isDirty ? 'Save *' : 'Save'}
+          {draftsState.isDirty ? 'Save *' : 'Save'}
         </button>
       </div>
 

@@ -3,14 +3,12 @@
   import { getNdk, connectNdk } from '$lib/ndk/client';
   import { loadDrafts, deleteDraft } from '$lib/ndk/drafts';
   import {
-    draftList,
+    draftsState,
     setDraftList,
     removeDraftFromList,
     setLoading,
-    setDraftError,
-    isLoading,
-    draftError
-  } from '$lib/features/drafts/state';
+    setDraftError
+  } from '$lib/features/drafts/state.svelte';
   import { readShipyardSession } from '$lib/api/session';
 
   let session = $state(readShipyardSession());
@@ -20,7 +18,7 @@
     return new Date(unixTs * 1000).toLocaleString();
   }
 
-  function draftTitle(entry: (typeof draftList)[number]): string {
+  function draftTitle(entry: (typeof draftsState.draftList)[number]): string {
     if (!entry.inner) return `Draft ${entry.id.slice(0, 8)}…`;
     try {
       const parsed = JSON.parse(entry.inner.content ?? '{}') as Record<string, unknown>;
@@ -74,20 +72,20 @@
     <p class="eyebrow">Compose</p>
     <h1>Drafts</h1>
   </div>
-  <button class="secondary-action" type="button" onclick={load} disabled={isLoading}>
+  <button class="secondary-action" type="button" onclick={load} disabled={draftsState.isLoading}>
     Refresh
   </button>
 </header>
 
-{#if draftError}
-  <section class="notice error">{draftError}</section>
+{#if draftsState.draftError}
+  <section class="notice error">{draftsState.draftError}</section>
 {/if}
 
 {#if !session.ownerPubkey}
   <section class="notice"><a href="/settings#login">Sign in</a> to manage drafts.</section>
-{:else if isLoading}
+{:else if draftsState.isLoading}
   <section class="notice">Loading drafts…</section>
-{:else if draftList.length === 0}
+{:else if draftsState.draftList.length === 0}
   <section class="notice">No drafts found. Start writing and save a draft.</section>
 {:else}
   <section class="panel">
@@ -100,7 +98,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each draftList as entry (entry.id)}
+        {#each draftsState.draftList as entry (entry.id)}
           <tr>
             <td>
               <a href="/drafts/{entry.id}">{draftTitle(entry)}</a>
@@ -111,7 +109,7 @@
                 class="danger-action"
                 type="button"
                 onclick={() => handleDelete(entry.id)}
-                disabled={isLoading}
+                disabled={draftsState.isLoading}
               >
                 Delete
               </button>
