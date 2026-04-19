@@ -1,4 +1,4 @@
-export type ComposerDrawerState = 'none' | 'media' | 'drafts' | 'advanced';
+export type ComposerDrawerState = 'none' | 'media' | 'drafts';
 
 export type ComposerNote = {
   id: string;

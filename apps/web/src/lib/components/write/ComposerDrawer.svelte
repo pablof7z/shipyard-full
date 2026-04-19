@@ -8,37 +8,27 @@
     draftRecords,
     drawer,
     saving,
-    signedEventText,
-    tagsText,
     onBlankDraft,
     onDraftIdChange,
     onForgetDraft,
     onInsertUrl,
     onLoadDraft,
-    onRefreshDrafts,
-    onScheduleSignedJson,
-    onSignedEventTextChange,
-    onTagsTextChange
+    onRefreshDrafts
   }: {
     draftId: string;
     draftRecords: LocalDraftWrapRecord[];
-    drawer: ComposerDrawerState;
+    drawer: Exclude<ComposerDrawerState, 'none'>;
     saving: boolean;
-    signedEventText: string;
-    tagsText: string;
     onBlankDraft: (record: LocalDraftWrapRecord) => void;
     onDraftIdChange: (value: string) => void;
     onForgetDraft: (record: LocalDraftWrapRecord) => void;
     onInsertUrl: (url: string) => void;
     onLoadDraft: (record: LocalDraftWrapRecord) => void;
     onRefreshDrafts: () => void;
-    onScheduleSignedJson: (event: SubmitEvent) => void;
-    onSignedEventTextChange: (value: string) => void;
-    onTagsTextChange: (value: string) => void;
   } = $props();
 
   function inputValue(event: Event) {
-    return (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value;
+    return (event.currentTarget as HTMLInputElement).value;
   }
 </script>
 
@@ -80,29 +70,6 @@
           {/each}
         {/if}
       </div>
-    </div>
-  {:else}
-    <div class="composer-drawer-panel">
-      <label class="field">
-        <span>Tags JSON</span>
-        <textarea value={tagsText} rows="4" spellcheck="false" oninput={(event) => onTagsTextChange(inputValue(event))}></textarea>
-      </label>
-      <form class="inner-form" onsubmit={onScheduleSignedJson}>
-        <label class="field">
-          <span>Signed event JSON</span>
-          <textarea
-            value={signedEventText}
-            rows="8"
-            spellcheck="false"
-            oninput={(event) => onSignedEventTextChange(inputValue(event))}
-          ></textarea>
-        </label>
-        <div class="inline-actions">
-          <button class="secondary-action" type="submit" disabled={saving || !signedEventText.trim()}>
-            Submit signed event
-          </button>
-        </div>
-      </form>
     </div>
   {/if}
 </aside>

@@ -14,10 +14,7 @@
   import ComposerScheduleBar from './ComposerScheduleBar.svelte';
   import ComposerTopbar from './ComposerTopbar.svelte';
   import { apiErrorMessage, toLocalInput } from './composer-actions';
-  import {
-    scheduleSignedJson as scheduleSignedJsonRequest,
-    submitComposition as submitCompositionRequest
-  } from './composer-submit';
+  import { submitComposition as submitCompositionRequest } from './composer-submit';
   import { blankDraftWrap, loadDraftWrap, saveDraftWrap } from './composer-drafts';
   import {
     contentFromNotes,
@@ -36,7 +33,6 @@
   let publishAt = $state(toLocalInput(new Date(Date.now() + 60 * 60 * 1000)));
   let queueId = $state('');
   let tagsText = $state('[]');
-  let signedEventText = $state('');
   let draftId = $state(createDraftId());
   let draftRecords = $state<LocalDraftWrapRecord[]>([]);
   let drawer = $state<ComposerDrawerState>('none');
@@ -183,37 +179,6 @@
     drawer = drawer === next ? 'none' : next;
   }
 
-  async function scheduleSignedJson(event: SubmitEvent) {
-    event.preventDefault();
-    saving = true;
-    try {
-      if (trigger !== 'SEND_NOW' && (!session.token || !session.ownerPubkey)) {
-        throw new Error('Configure a session and active owner before publishing.');
-      }
-      const signedEvent = JSON.parse(signedEventText) as Record<string, unknown>;
-      const ownerPubkey =
-        session.ownerPubkey ||
-        (trigger === 'SEND_NOW' && typeof signedEvent.pubkey === 'string' ? signedEvent.pubkey : '');
-      await scheduleSignedJsonRequest({
-        token: session.token,
-        ownerPubkey,
-        trigger,
-        publishAt,
-        queueId,
-        relayUrls,
-        content,
-        tagsText,
-        signedEvent
-      });
-      signedEventText = '';
-      setMessage(trigger === 'SEND_NOW' ? 'Signed event published directly to relays.' : 'Signed event scheduled.');
-    } catch (err) {
-      setError(err, 'Failed to schedule signed event.');
-    } finally {
-      saving = false;
-    }
-  }
-
   async function loadWriteContext() {
     session = readShipyardSession();
     loading = true;
@@ -284,17 +249,12 @@
       {draftRecords}
       drawer={drawer}
       {saving}
-      {signedEventText}
-      {tagsText}
       onBlankDraft={blankDraft}
       onDraftIdChange={(value) => (draftId = value)}
       onForgetDraft={forgetDraft}
       onInsertUrl={insertBlossomUrl}
       onLoadDraft={loadDraft}
       onRefreshDrafts={refreshDrafts}
-      onScheduleSignedJson={scheduleSignedJson}
-      onSignedEventTextChange={(value) => (signedEventText = value)}
-      onTagsTextChange={(value) => (tagsText = value)}
     />
   {/if}
 

@@ -74,17 +74,6 @@
       </svg>
       <span>Drafts</span>
     </button>
-    <button
-      class:active={activeDrawer === 'advanced'}
-      type="button"
-      title="Advanced"
-      onclick={() => onToggleDrawer('advanced')}
-    >
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M6 4L2.5 8 6 12M10 4l3.5 4L10 12" />
-      </svg>
-      <span>Advanced</span>
-    </button>
   </div>
 
   <div class="composer-publish-group">
