@@ -99,7 +99,21 @@
             </span>
           </User.Root>
 
-          <p class="post-content">{model.postContent(proposal)}</p>
+          {#if model.state.editingId === proposal.id}
+            <textarea
+              class="edit-box"
+              bind:value={model.state.editedContent}
+              rows="6"
+              placeholder="Edit the post"
+            ></textarea>
+          {:else}
+            <p class="post-content">
+              {model.postContent(proposal)}
+              {#if model.state.editedIds.has(proposal.id)}
+                <span class="edited-tag">edited</span>
+              {/if}
+            </p>
+          {/if}
 
           {#if model.state.rejectingId === proposal.id}
             <div class="reject-box">
@@ -127,6 +141,25 @@
                 </button>
               </div>
             </div>
+          {:else if model.state.editingId === proposal.id}
+            <div class="actions">
+              <button
+                class="secondary-action"
+                type="button"
+                onclick={model.cancelEdit}
+                disabled={model.state.saving}
+              >
+                Cancel
+              </button>
+              <button
+                class="primary-action"
+                type="button"
+                onclick={() => model.saveEdit(proposal.id)}
+                disabled={model.state.saving}
+              >
+                Save edits
+              </button>
+            </div>
           {:else}
             <div class="actions">
               <button
@@ -136,6 +169,14 @@
                 disabled={model.state.saving}
               >
                 Approve
+              </button>
+              <button
+                class="secondary-action"
+                type="button"
+                onclick={() => model.startEdit(proposal)}
+                disabled={model.state.saving || !proposal.unsigned_event_json}
+              >
+                Edit
               </button>
               <button
                 class="secondary-action"
@@ -282,6 +323,34 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     font: inherit;
+  }
+
+  .edit-box {
+    grid-area: content;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .edited-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border-radius: 999px;
+    vertical-align: middle;
   }
 
   .row.empty {

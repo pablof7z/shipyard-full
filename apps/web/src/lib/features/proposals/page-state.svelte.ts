@@ -16,6 +16,9 @@ type ReviewPageState = {
   selected: Set<string>;
   rejectingId: string | null;
   rejectReason: string;
+  editingId: string | null;
+  editedContent: string;
+  editedIds: Set<string>;
   loading: boolean;
   saving: boolean;
   message: string;
@@ -46,6 +49,9 @@ export function createProposalsPageState() {
     selected: new Set(),
     rejectingId: null,
     rejectReason: '',
+    editingId: null,
+    editedContent: '',
+    editedIds: new Set(),
     loading: true,
     saving: false,
     message: '',
@@ -102,6 +108,39 @@ export function createProposalsPageState() {
     state.rejectReason = '';
   }
 
+  function startEdit(proposal: PublishItem) {
+    const event = proposal.unsigned_event_json ?? proposal.signed_event_json;
+    const content = typeof event?.content === 'string' ? event.content : '';
+    state.editingId = proposal.id;
+    state.editedContent = content;
+  }
+
+  function cancelEdit() {
+    state.editingId = null;
+    state.editedContent = '';
+  }
+
+  function saveEdit(proposalId: string) {
+    state.proposals = state.proposals.map((proposal) => {
+      if (proposal.id !== proposalId || !proposal.unsigned_event_json) {
+        return proposal;
+      }
+      return {
+        ...proposal,
+        unsigned_event_json: {
+          ...proposal.unsigned_event_json,
+          content: state.editedContent
+        }
+      };
+    });
+    const nextEdited = new Set(state.editedIds);
+    nextEdited.add(proposalId);
+    state.editedIds = nextEdited;
+    state.editingId = null;
+    state.editedContent = '';
+    setMessage('Edits will apply when you approve.');
+  }
+
   async function load() {
     state.session = readShipyardSession();
     state.loading = true;
@@ -122,6 +161,7 @@ export function createProposalsPageState() {
       state.selected = new Set(
         [...state.selected].filter((id) => state.proposals.some((p) => p.id === id))
       );
+      state.editedIds = new Set();
     } catch (err) {
       setError(err, "Couldn't load posts for review.");
     } finally {
@@ -221,12 +261,15 @@ export function createProposalsPageState() {
     state,
     approve,
     approveSelected,
+    cancelEdit,
     cancelReject,
     clearSelection,
     load,
     postContent,
     rejectWithReason,
     remove,
+    saveEdit,
+    startEdit,
     startReject,
     toggle,
     whenLabel

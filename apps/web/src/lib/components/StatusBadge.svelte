@@ -4,9 +4,9 @@
   let { state }: { state: PublishState } = $props();
 
   const labels: Record<PublishState, string> = {
-    PROPOSED: 'Proposed',
+    PROPOSED: 'Awaiting review',
     REJECTED: 'Rejected',
-    NEEDS_SIGNATURE: 'Needs Signature',
+    NEEDS_SIGNATURE: 'Awaiting approval',
     SIGNED: 'Scheduled',
     SCHEDULED: 'Scheduled',
     PUBLISHING: 'Publishing',

@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { compactPubkey } from '$lib/api/session';
   import { loginModal } from '$lib/components/onboarding/loginState.svelte';
   import { createQueuesPageState } from '$lib/features/queues/page-state.svelte';
 
@@ -40,7 +39,7 @@
   <div class="two-column">
     <form class="card-form" onsubmit={model.createQueue}>
       <div class="section-header">
-        <h2>Create Queue</h2>
+        <h2>New queue</h2>
         <button class="primary-action" type="submit" disabled={model.state.saving || !model.state.name.trim()}>
           Create
         </button>
@@ -53,17 +52,17 @@
 
       <label class="field">
         <span>Description</span>
-        <textarea bind:value={model.state.description} rows="4" placeholder="Optional queue purpose"></textarea>
+        <textarea bind:value={model.state.description} rows="4" placeholder="What's this queue for? (optional)"></textarea>
       </label>
 
       <div class="form-grid">
         <label class="field">
-          <span>Cadence minutes</span>
+          <span>Post every (minutes)</span>
           <input bind:value={model.state.cadenceMinutes} min="1" type="number" />
         </label>
 
         <label class="field">
-          <span>First slot</span>
+          <span>Start at</span>
           <input bind:value={model.state.startAt} type="datetime-local" />
         </label>
       </div>
@@ -71,7 +70,7 @@
 
     <form class="card-form" onsubmit={model.updateSelectedQueue}>
       <div class="section-header">
-        <h2>Update Queue</h2>
+        <h2>Edit queue</h2>
         <button
           class="primary-action"
           type="submit"
@@ -94,12 +93,12 @@
 
         <div class="form-grid">
           <label class="field">
-            <span>Cadence minutes</span>
+            <span>Post every (minutes)</span>
             <input bind:value={model.state.editCadenceMinutes} min="1" type="number" />
           </label>
 
           <label class="field">
-            <span>First slot</span>
+            <span>Start at</span>
             <input bind:value={model.state.editStartAt} type="datetime-local" />
           </label>
         </div>
@@ -111,17 +110,20 @@
             onclick={() => model.loadNextSlot(model.selectedQueue?.id ?? '')}
             disabled={model.state.saving}
           >
-            Next Slot
+            When's the next slot?
           </button>
         </div>
 
         {#if model.state.nextSlot?.queue_id === model.selectedQueue.id}
           <p class="meta-line">
-            Next slot {model.formatDate(model.state.nextSlot.next_slot)}. Latest assigned slot {model.formatDate(model.state.nextSlot.latest_queue_slot)}.
+            Next slot: {model.formatDate(model.state.nextSlot.next_slot)}.
+            {#if model.state.nextSlot.latest_queue_slot}
+              Last post went out {model.formatDate(model.state.nextSlot.latest_queue_slot)}.
+            {/if}
           </p>
         {/if}
       {:else}
-        <p class="meta-line">Select an active queue to edit cadence, start time, or calculate the next slot.</p>
+        <p class="meta-line">Pick a queue on the right to edit its name, timing, or schedule.</p>
       {/if}
     </form>
   </div>
@@ -129,31 +131,32 @@
   <div class="two-column">
     <div class="card-form">
       <div class="section-header">
-        <h2>Active Queues</h2>
-        <span class="muted-text">{compactPubkey(model.state.session.ownerPubkey)}</span>
+        <h2>Your queues</h2>
       </div>
 
       <div class="rows compact">
         {#if model.state.loading}
           <article class="row">
-            <p>Loading queues...</p>
+            <p>Loading...</p>
           </article>
         {:else if !model.activeQueues.length}
           <article class="row">
-            <p>No active queues.</p>
+            <p>No queues yet. Create your first on the left.</p>
           </article>
         {:else}
           {#each model.activeQueues as queue}
             <article class="row">
               <p>
                 <strong>{queue.name}</strong>
-                <span>{queue.description ?? 'No description'}</span>
+                {#if queue.description}
+                  <span>{queue.description}</span>
+                {/if}
               </p>
               <span class="muted-text">{model.cadenceLabel(queue.cadence_seconds)}</span>
               <time>{model.formatDate(queue.start_at)}</time>
               <div class="inline-actions">
                 <button class="secondary-action" type="button" onclick={() => model.selectQueue(queue)}>
-                  Select
+                  Edit
                 </button>
                 <button
                   class="secondary-action"
@@ -161,7 +164,7 @@
                   onclick={() => model.loadNextSlot(queue.id)}
                   disabled={model.state.saving}
                 >
-                  Next
+                  Next slot
                 </button>
                 <button
                   class="danger-action"

@@ -45,7 +45,7 @@
   const content = $derived(contentFromNotes(notes));
   const activeCharCount = $derived(notes[activeNoteIndex]?.content.length ?? 0);
   const submitLabel = $derived(
-    trigger === 'SEND_NOW' ? 'Send Now' : trigger === 'QUEUE' ? 'Add to Queue' : 'Schedule'
+    trigger === 'SEND_NOW' ? 'Send now' : trigger === 'QUEUE' ? 'Add to queue' : 'Schedule'
   );
 
   function setMessage(value: string) {
@@ -62,12 +62,12 @@
     saving = true;
     try {
       if (trigger !== 'SEND_NOW' && (!session.token || !session.ownerPubkey)) {
-        throw new Error('Configure a session and active owner before publishing.');
+        throw new Error('Sign in before you can schedule.');
       }
       if (!content.trim()) return;
       const ownerPubkey = session.ownerPubkey || (await window.nostr?.getPublicKey?.()) || '';
       if (!ownerPubkey) {
-        throw new Error('Connect a browser signer before sending now.');
+        throw new Error('Sign in to send posts.');
       }
 
       const result = await submitCompositionRequest({
@@ -82,16 +82,18 @@
       });
       setMessage(
         result === 'published'
-          ? 'Published directly to relays.'
+          ? 'Published.'
           : result === 'signed'
-            ? `${submitLabel} request saved.`
-            : 'Proposal submitted.'
+            ? trigger === 'QUEUE'
+              ? 'Added to queue.'
+              : 'Scheduled.'
+            : 'Sent for review.'
       );
       notes = [createComposerNote()];
       tagsText = '[]';
       activeNoteIndex = 0;
     } catch (err) {
-      setError(err, 'Failed to submit composition.');
+      setError(err, "Couldn't publish. Try again?");
     } finally {
       saving = false;
     }
@@ -109,7 +111,7 @@
       refreshDrafts();
       setMessage('Draft saved.');
     } catch (err) {
-      setError(err, 'Failed to save draft.');
+      setError(err, "Couldn't save draft.");
     } finally {
       saving = false;
     }
@@ -123,7 +125,7 @@
       loadDraftIntoComposer(draft);
       setMessage('Draft loaded.');
     } catch (err) {
-      setError(err, 'Failed to load draft.');
+      setError(err, "Couldn't load draft.");
     } finally {
       saving = false;
     }
@@ -134,9 +136,9 @@
     try {
       await blankDraftWrap(session.ownerPubkey, record);
       refreshDrafts();
-      setMessage('Draft blanked.');
+      setMessage('Draft cleared.');
     } catch (err) {
-      setError(err, 'Failed to blank draft.');
+      setError(err, "Couldn't clear draft.");
     } finally {
       saving = false;
     }
@@ -197,7 +199,7 @@
       queueId = queueId || activeQueues[0]?.id || '';
       refreshDrafts();
     } catch (err) {
-      setError(err, 'Failed to load write context.');
+      setError(err, "Couldn't load your workspace.");
     } finally {
       loading = false;
     }
@@ -231,7 +233,7 @@
   />
 
   {#if trigger !== 'SEND_NOW' && (!session.token || !session.ownerPubkey)}
-    <section class="composer-notice">Configure a session and active owner in Settings before writing.</section>
+    <section class="composer-notice">Sign in to schedule posts.</section>
   {/if}
 
   <ComposerNoteList

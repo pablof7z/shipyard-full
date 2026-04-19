@@ -37,9 +37,16 @@ function formatDate(value: string | null) {
 }
 
 function cadenceLabel(seconds: number) {
-  if (seconds % 86_400 === 0) return `${seconds / 86_400}d`;
-  if (seconds % 3_600 === 0) return `${seconds / 3_600}h`;
-  return `${Math.round(seconds / 60)}m`;
+  if (seconds % 86_400 === 0) {
+    const days = seconds / 86_400;
+    return days === 1 ? 'Once a day' : `Every ${days} days`;
+  }
+  if (seconds % 3_600 === 0) {
+    const hours = seconds / 3_600;
+    return hours === 1 ? 'Every hour' : `Every ${hours} hours`;
+  }
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes === 1 ? 'Every minute' : `Every ${minutes} minutes`;
 }
 
 export function createQueuesPageState() {
@@ -84,7 +91,7 @@ export function createQueuesPageState() {
 
       state.queues = await shipyardApi.queues(state.session.token, state.session.ownerPubkey);
     } catch (err) {
-      setError(err, 'Failed to load queues.');
+      setError(err, "Couldn't load queues.");
     } finally {
       state.loading = false;
     }
@@ -106,10 +113,11 @@ export function createQueuesPageState() {
       state.cadenceMinutes = 1440;
       state.startAt = toLocalInput(new Date(Date.now() + 60 * 60 * 1000));
       state.message = 'Queue created.';
+
       state.error = '';
       await loadQueues();
     } catch (err) {
-      setError(err, 'Failed to create queue.');
+      setError(err, "Couldn't create queue. Try again?");
     } finally {
       state.saving = false;
     }
@@ -137,11 +145,11 @@ export function createQueuesPageState() {
         cadence_seconds: Math.max(1, Math.round(state.editCadenceMinutes * 60)),
         start_at: new Date(state.editStartAt).toISOString()
       });
-      state.message = 'Queue updated.';
+      state.message = 'Saved.';
       state.error = '';
       await loadQueues();
     } catch (err) {
-      setError(err, 'Failed to update queue.');
+      setError(err, "Couldn't save changes. Try again?");
     } finally {
       state.saving = false;
     }
@@ -151,10 +159,9 @@ export function createQueuesPageState() {
     state.saving = true;
     try {
       state.nextSlot = await shipyardApi.nextQueueSlot(state.session.token, queueId);
-      state.message = 'Next queue slot calculated.';
       state.error = '';
     } catch (err) {
-      setError(err, 'Failed to calculate the next queue slot.');
+      setError(err, "Couldn't calculate the next slot.");
     } finally {
       state.saving = false;
     }
@@ -172,7 +179,7 @@ export function createQueuesPageState() {
         state.nextSlot = null;
       }
     } catch (err) {
-      setError(err, 'Failed to archive queue.');
+      setError(err, "Couldn't archive queue.");
     } finally {
       state.saving = false;
     }
