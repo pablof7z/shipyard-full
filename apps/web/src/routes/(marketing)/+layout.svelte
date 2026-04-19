@@ -1,7 +1,8 @@
 <script lang="ts">
-  import '$lib/styles.css';
+  import LoginModal from '$lib/components/onboarding/LoginModal.svelte';
 
   let { children }: { children: import('svelte').Snippet } = $props();
 </script>
 
 {@render children()}
+<LoginModal />

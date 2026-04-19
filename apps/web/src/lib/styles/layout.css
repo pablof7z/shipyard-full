@@ -57,6 +57,10 @@
   gap: 10px;
 }
 
+.account-profile {
+  display: contents;
+}
+
 .avatar {
   width: 30px;
   height: 30px;
@@ -66,6 +70,41 @@
   border: 1px solid var(--accent);
   color: var(--accent);
   font-weight: 700;
+  flex: 0 0 30px;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-tertiary);
+}
+
+[data-user-avatar].avatar {
+  color: var(--text-primary);
+}
+
+[data-user-avatar-fallback],
+[data-user-avatar-img] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+[data-user-avatar-fallback] {
+  display: grid;
+  place-items: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-user-avatar-img] {
+  display: block;
+  object-fit: cover;
+  opacity: 0;
+}
+
+[data-user-avatar-img].image-loaded {
+  opacity: 1;
 }
 
 .account-copy,

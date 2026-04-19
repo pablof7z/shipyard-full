@@ -24,7 +24,7 @@
 
 <header class="composer-topbar">
   <div class="composer-topbar-left">
-    <a class="composer-icon-btn" href="/" aria-label="Back to dashboard">
+    <a class="composer-icon-btn" href="/dashboard" aria-label="Back to dashboard">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 3l-5 5 5 5" /></svg>
     </a>
     <div class="composer-account-pill">
