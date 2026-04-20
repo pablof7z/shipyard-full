@@ -57,13 +57,13 @@ test.describe('Write page', () => {
 
     await page.goto('/write');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('abcd1234ab...cd1234')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByPlaceholder("What's on your mind?")).toBeVisible({ timeout: 8000 });
     await page.getByLabel('Publish mode').selectOption('SEND_NOW');
     await expect(page.getByRole('button', { name: 'Send Now' })).toBeVisible();
     await page.getByPlaceholder("What's on your mind?").fill('Direct relay publish');
     await page.getByRole('button', { name: 'Send Now' }).click();
 
-    await expect(page.getByText('Published directly to relays.')).toBeVisible();
+    await expect(page.getByText('Published.')).toBeVisible();
     const relayEvent = await page.evaluate(() => localStorage.getItem('shipyard.test.relay_event'));
     expect(relayEvent).toContain('Direct relay publish');
     expect(scheduleRequests).toHaveLength(0);

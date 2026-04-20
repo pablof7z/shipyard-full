@@ -36,13 +36,13 @@ test.describe('Queues page — authenticated', () => {
     await expect(page).toHaveTitle('Queues - Shipyard');
     await expect(page.getByRole('heading', { name: 'Queues', level: 1 })).toBeVisible();
     await expect(page.locator('.eyebrow')).toHaveText('Scheduling');
-    await expect(page.getByRole('heading', { name: 'Create Queue', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'New queue', level: 2 })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled();
   });
 
   /** Wait for active queues to finish loading */
   async function waitForQueuesLoaded(page: import('@playwright/test').Page) {
-    const activeSection = page.locator('.card-form').filter({ hasText: 'Active Queues' });
+    const activeSection = page.locator('.card-form').filter({ hasText: 'Your queues' });
     await expect(activeSection.locator('.rows.compact .row').first())
       .not.toContainText('Loading', { timeout: 8000 });
   }
@@ -50,27 +50,28 @@ test.describe('Queues page — authenticated', () => {
   test('lists active queues from API', async ({ page }) => {
     await page.goto('/queues');
     await waitForQueuesLoaded(page);
-    await expect(page.getByText('Weekday Posts')).toBeVisible();
+    const activeSection = page.locator('.card-form').filter({ hasText: 'Your queues' });
+    await expect(activeSection.locator('.row').filter({ hasText: 'Weekday Posts' })).toBeVisible();
   });
 
   test('shows queue cadence label (1d for 86400s)', async ({ page }) => {
     await page.goto('/queues');
     await waitForQueuesLoaded(page);
-    const activeSection = page.locator('.card-form').filter({ hasText: 'Active Queues' });
-    await expect(activeSection.locator('.rows.compact .row').first()).toContainText('1d');
+    const activeSection = page.locator('.card-form').filter({ hasText: 'Your queues' });
+    await expect(activeSection.locator('.rows.compact .row').first()).toContainText('Once a day');
   });
 
   test('queue Select button allows editing', async ({ page }) => {
     await page.goto('/queues');
     await waitForQueuesLoaded(page);
 
-    const activeSection = page.locator('.card-form').filter({ hasText: 'Active Queues' });
-    await activeSection.getByRole('button', { name: 'Select' }).first().click();
+    const activeSection = page.locator('.card-form').filter({ hasText: 'Your queues' });
+    await activeSection.getByRole('button', { name: 'Edit' }).first().click();
 
-    await expect(page.getByRole('heading', { name: 'Update Queue', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Edit queue', level: 2 })).toBeVisible();
 
     // After selecting, editName is bound to the input — check via toHaveValue (DOM property)
-    const updateForm = page.locator('.card-form').filter({ hasText: 'Update Queue' });
+    const updateForm = page.locator('.card-form').filter({ hasText: 'Edit queue' });
     await expect(updateForm.locator('input').first()).toHaveValue('Weekday Posts');
   });
 
@@ -112,7 +113,7 @@ test.describe('Queues page — authenticated', () => {
     await page.goto('/queues');
     await waitForQueuesLoaded(page);
 
-    const activeSection = page.locator('.card-form').filter({ hasText: 'Active Queues' });
+    const activeSection = page.locator('.card-form').filter({ hasText: 'Your queues' });
     await activeSection.getByRole('button', { name: 'Archive' }).first().click();
 
     await expect(page.locator('.notice.success')).toContainText('Queue archived', { timeout: 8000 });
